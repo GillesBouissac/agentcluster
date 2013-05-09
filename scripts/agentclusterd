@@ -213,11 +213,15 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     # Global parameters
-    if options.log_config is not None:
+    default_log_file = "/usr/local/agentcluster//scripts/agentcluster-log.conf"
+    print default_log_file
+    if options.log_config:
         logging.config.fileConfig(options.log_config)
-    if options.agent_dir is not None:
+    elif os.path.exists(default_log_file):
+        logging.config.fileConfig(default_log_file)
+    if options.agent_dir:
         for ddir in options.agent_dir: confdir.data.append(ddir)
-    if options.cache_dir is not None:
+    if options.cache_dir:
         confdir.cache = options.cache_dir;
     if pysnmplogger.isEnabledFor(logging.DEBUG):
         debug.setLogger(debug.Debug("all"))

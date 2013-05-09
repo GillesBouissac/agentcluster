@@ -2,7 +2,7 @@
 
 set -u
 
-../agentcluster.py -l ./test-log.conf -a ./ -m 10 &
+../scripts/agentclusterd -l ./test-log.conf -a ./ -m 10 &
 AGPID=$!
 
 exec_test(){
