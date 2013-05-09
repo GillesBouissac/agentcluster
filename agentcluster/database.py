@@ -1,5 +1,6 @@
+from agentcluster import confdir, __version__
 from pyasn1.compat.octets import str2octs
-from agentcluster import confdir
+from pyasn1.type import univ
 from whichdb import whichdb
 import anydbm as dbm
 import logging
@@ -48,25 +49,28 @@ class RecordIndex:
         textFileStamp = os.stat(self.__textFile)[8]
         upToDate      = False
         for dbFile in ( self.__dbFile + os.path.extsep + 'db', self.__dbFile ):
-            if not os.path.exists(dbFile):
-                # Database doesn't exist, try next one
-                continue;
-            # From here, database exists
-            if textFileStamp >= os.stat(dbFile)[8]:
-                # it is older than source file: not up to date
+            try:
+                if not os.path.exists(dbFile):
+                    # Database doesn't exist, try next one
+                    continue;
+                # From here, database exists
+                if textFileStamp >= os.stat(dbFile)[8]:
+                    # it is older than source file: not up to date
+                    break;
+                if not whichdb(dbFile):
+                    # Not in a readable format
+                    break;
+                db = dbm.open(dbFile)
+                if not db["__version__"] == __version__:
+                    db.close()
+                    break;
+                db.close()
+                # Everything is ok with the existing database
+                upToDate = True
                 break;
-            if not whichdb(dbFile):
-                # Not in a readable format
-                break;
-            # Everything is ok with the existing database
-            upToDate = True
-            break;
+            except Exception:
+                pass
         return upToDate
-
-    def getHandles(self):
-        if not self.isOpen():
-            self.open()
-        return self.__text, self.__db
 
     def refresh (self, validateData=False):
         """ Rebuild the index from source file """
@@ -83,6 +87,7 @@ class RecordIndex:
         while open_flags:
             try:
                 db = dbm.open(self.__dbFile, open_flags)
+                db["__version__"] = __version__
             except Exception:
                 open_flags = open_flags[:-1]
                 if not open_flags:
@@ -97,19 +102,16 @@ class RecordIndex:
         # Build the "direct" indexes to have direct access to values
         nb_direct = nb_next = 0
         lineNo = 0
-        offset = 0
         while 1:
 
             try:
-                oid  = None
-                line = ""
-                while oid is None:
-                    offset += len(line)
+                oid = line = None
+                while not oid:
                     line = text.readline()
                     lineNo += 1
-                    if not line:
-                        break
+                    if not line: break
                     oid, tag, val = self.textParser.grammar.parse(line)
+                if not oid: break
             except Exception:
                 db.close()
                 exc = sys.exc_info()[1]
@@ -119,30 +121,31 @@ class RecordIndex:
                     pass
                 raise Exception('Data error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
 
-            if not oid:
-                break
+            try:
+                _oid     = self.textParser.evaluateOid(oid)
+            except Exception:
+                db.close()
+                exc = sys.exc_info()[1]
+                try:
+                    os.remove(self.__dbFile)
+                except OSError:
+                    pass
+                raise Exception( 'OID error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
 
-            if validateData:
-                try:
-                    self.textParser.evaluateOid(oid)
-                except Exception:
-                    db.close()
-                    exc = sys.exc_info()[1]
-                    try:
-                        os.remove(self.__dbFile)
-                    except OSError:
-                        pass
-                    raise Exception( 'OID error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
-                try:
-                    self.textParser.evaluateValue( oid, tag, val, dataValidation=True)
-                except Exception:
-                    logger.warn ( 'Validation error at line %s, value %r: %s', lineNo, val, sys.exc_info()[1] );
+            try:
+                _tag = self.textParser.evaluateTag(tag)
+            except Exception:
+                logger.warn ( 'Validation error at line %s, tag %r: %s', lineNo, tag, sys.exc_info()[1] );
+
+            try:
+                _val = self.textParser.evaluateValue( oid, tag, val, dataValidation=True)
+            except Exception:
+                logger.warn ( 'Validation error at line %s, value %r: %s', lineNo, val, sys.exc_info()[1] );
 
             # for lines serving subtrees, type is empty in tag field
-            db[oid] = '%s,%d,%s,%s' % (oid, tag[0] == ':', tag, val)
-            db_oids.append ( str2oid(oid) );
+            db[oid] = '%s,%d,%s,%s' % (oid2str(_oid), tag[0] == ':', _tag, _val)
+            db_oids.append ( _oid );
             nb_direct = nb_direct+1
-            offset += len(line)
 
         # Build the "next" indexes to have direct access to next values
 
@@ -179,9 +182,24 @@ class RecordIndex:
         self.__dbType = whichdb(self.__dbFile)
         return self
 
+    def str2class(self, class_full_name):
+        module_tree = class_full_name.split(".")
+        module_name = ".".join(module_tree[:-1])
+        class_name  = module_tree[-1:][0]
+        m = __import__(module_name, globals(), locals(), class_name)
+        # get the class, will raise AttributeError if class cannot be found
+        c = getattr(m, class_name)
+        return c
+
     def lookup(self, oid):
         """ Returns the record which oid is exactly the given one or None if the record doesn't exist """
-        return self.__db[oid].split(str2octs(','), 3)
+        oid, is_subtree, tag, val = self.__db[oid].split(str2octs(','), 3)
+        try:
+            tag_class = self.str2class(tag);
+        except Exception:
+            logger.error ( 'Could not interpret tag %s', tag, exc_info=True );
+            raise
+        return univ.ObjectIdentifier(oid), is_subtree, tag_class, tag_class(val)
 
     def lookup_next(self, oid):
         """ Returns the record which oid is the closest after the given one or None if none exist after """
@@ -203,7 +221,6 @@ class RecordIndex:
         db.close()
 
     def open(self):
-        self.__text = open(self.__textFile, 'rb')
         self.__db = dbm.open(self.__dbFile)
 
     def close(self):

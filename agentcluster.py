@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Name:         SnmpCluster
+# Name:         AgentCluster
 # Author:       Gilles Bouissac
 # Description:  This module is able to simulate a network of SNMP agents on one single host
 #               Each agent has its own IP, port, protocol versions, users, mibs, communities, contextes.
@@ -60,7 +60,8 @@ import time
 logger = logging.getLogger('agentcluster.main')
 pysnmplogger = logging.getLogger('pysnmp')
 
-class SnmpCluster:
+class AgentCluster:
+    """ Main process class """
 
     # List of instantiated agents indexed by their conf file full path
     agents = {};
@@ -115,6 +116,9 @@ class SnmpCluster:
 
             # Search for agent specifications
             self.parse_confs(confdir.data);
+            if len(self.agents)==0:
+                logger.info ( 'No agent configuration found, nothing to do' );
+                return
 
             logger.debug ( 'Starting agent watchdog' );
             self.watchdog = Watchdog(self)
@@ -219,6 +223,6 @@ if __name__ == "__main__":
         debug.setLogger(debug.Debug("all"))
 
     # Instantiate the server and start it
-    server = SnmpCluster(options)
+    server = AgentCluster(options)
     server.run()
 

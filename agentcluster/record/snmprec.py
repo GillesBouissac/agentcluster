@@ -5,6 +5,11 @@ class SnmprecRecord(dump.DumpRecord):
     grammar = snmprec.SnmprecGrammar()
     ext = 'snmprec'
 
+    def evaluateTag(self, tag):
+        if tag and tag[-1] == 'x':
+            tag = tag[:-1]
+        return self.grammar.tagMap[tag]
+
     def evaluateValue(self, oid, tag, value, **context):
         if tag and tag[-1] == 'x':
             tag = tag[:-1]
@@ -15,7 +20,7 @@ class SnmprecRecord(dump.DumpRecord):
         if hexvalue is None:
             return oid, tag, self.grammar.tagMap[tag](value)
         else:
-            return oid, tag, self.grammar.tagMap[tag](hexValue=hexvalue)
+            return self.grammar.tagMap[tag](hexValue=hexvalue)
 
     def formatValue(self, oid, value, **context):
         if 'nohex' in context and context['nohex']:

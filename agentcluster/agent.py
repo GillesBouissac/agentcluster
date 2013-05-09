@@ -175,6 +175,6 @@ if __name__ == "__main__":
     logger.info ( 'Test agent alone' );
     tokens_start = JoinableQueue()
     tokens_start.put(object());
-    agent = Agent ( "../tests/agents/linux/linux.agent", tokens_start, None, 0 );
+    agent = Agent ( "../tests/agents/windows/windows.agent", tokens_start, None, 0 );
     agent.run()
 

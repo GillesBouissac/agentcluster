@@ -13,9 +13,9 @@ class SnapshotFile (AbstractMibInstrumController):
     maxQueueEntries = 15  # max number of open text and index files
 
     def __init__(self, textFile, textParser):
-        self._recordIndex = RecordIndex(textFile, textParser)
         self.__textParser = textParser
         self.__textFile = textFile
+        self._recordIndex = RecordIndex(self.__textFile, self.__textParser)
 
     def indexText(self, forceIndexBuild=False):
         self._recordIndex.create(forceIndexBuild, True)
@@ -24,14 +24,13 @@ class SnapshotFile (AbstractMibInstrumController):
     def close(self):
         self._recordIndex.close()
 
-    def getHandles(self):
+    def openDb(self):
         if not self._recordIndex.isOpen():
             if len(SnapshotFile.openedQueue) > self.maxQueueEntries:
                 SnapshotFile.openedQueue[0].close()
                 del SnapshotFile.openedQueue[0]
             SnapshotFile.openedQueue.append(self)
             self._recordIndex.open()
-        return self._recordIndex.getHandles()
 
     def processVarBinds(self, varBinds, nextFlag=False, setFlag=False):
 
@@ -39,8 +38,7 @@ class SnapshotFile (AbstractMibInstrumController):
             logger.info ( 'Configuration file changed: %s', self.__textFile );
             self._recordIndex.refresh(True);
 
-        self.getHandles()
-        parser = self._recordIndex.textParser
+        self.openDb()
 
         rspVarBinds = []
         for oid,_ in varBinds: 
@@ -61,8 +59,8 @@ class SnapshotFile (AbstractMibInstrumController):
                     rspVarBinds.append((oid, exval.noSuchInstance))
                     continue
 
-            _oid     = parser.evaluateOid(_oid)
-            _,_,_val = parser.evaluateValue(_oid,_tag,_val)
+            # _oid     = parser.evaluateOid(_oid)
+            # _,_,_val = parser.evaluateValue(_oid,_tag,_val)
             rspVarBinds.append ( ( _oid, _val ) )
 
         return rspVarBinds

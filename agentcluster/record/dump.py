@@ -12,9 +12,12 @@ class DumpRecord(abstract.AbstractRecord):
     def evaluateOid(self, oid):
         return univ.ObjectIdentifier(oid)
 
+    def evaluateTag(self, tag):
+        return self.grammar.tagMap[tag]
+
     def evaluateValue(self, oid, tag, value, **context):
-        return oid, tag, self.grammar.tagMap[tag](value)
-    
+        return self.grammar.tagMap[tag](value)
+
     def evaluate(self, line, **context):
         oid, tag, value = self.grammar.parse(line)
         oid = self.evaluateOid(oid)

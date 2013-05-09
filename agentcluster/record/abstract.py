@@ -10,7 +10,10 @@ class AbstractRecord:
 
     def evaluateValue(self, oid, tag, value, **context):
         raise ClusterException('Method not implemented at %s' % self.__class__.__name__)
-    
+
+    def evaluateTag(self, tag):
+        raise ClusterException('Method not implemented at %s' % self.__class__.__name__)
+
     def evaluate(self, line, **context):
         raise ClusterException('Method not implemented at %s' % self.__class__.__name__)
 

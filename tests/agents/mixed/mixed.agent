@@ -8,27 +8,15 @@
         "udp6":  "[::1]:33401"
     },
 
-    "snmpv1": {
-        "users": [
-            {
-                "name":      "public"
-            }
-        ],
-
-        "mib": {
-            "public":   "Linksys.snmpwalk"
-        }
-    },
-
     "snmpv2c": {
         "users": [
             { "name": "public"},
-            { "name": "toto"}
+            { "name": "v2c"}
         ],
 
         "mib": {
             "public":   "Solaris.snmpwalk",
-            "toto":     "WindowsXp.snmpwalk"
+            "v2c":      "WindowsXp.snmpwalk"
         }
     },
 

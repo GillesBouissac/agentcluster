@@ -48,11 +48,16 @@ class SnmpConfHelperV1(SnmpConfHelperBase):
 
         for community, snapshotPath in params.mib.__dict__.items():
             mibInstrum = self._buildMibInstrum ( params.confPath, snapshotPath )
-            contextName = self.contexts[community]
-            # Remove previous context if any
-            snmpContext.unregisterContextName(contextName)
-            # Registers the new context
-            snmpContext.registerContextName(contextName, mibInstrum)
+            try:
+                contextName = self.contexts[community]
+                # Remove previous context if any
+                snmpContext.unregisterContextName(contextName)
+                # Registers the new context
+                snmpContext.registerContextName(contextName, mibInstrum)
+            except KeyError:
+                msg = "Error: There is no user declared with the mib name '%s'" % community
+                logger.debug ( msg );
+                raise ClusterException( msg )
 
     def _configureUsers(self, snmpEngine, snmpContext, params):
         logger.debug ( 'Configure users' );

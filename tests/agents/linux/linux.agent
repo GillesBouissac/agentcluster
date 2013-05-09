@@ -20,13 +20,13 @@
 
     "snmpv2c": {
         "users": [
-            { "name": "public"},
-            { "name": "toto"}
+            { "name": "v2public"},
+            { "name": "v2linux"}
         ],
 
         "mib": {
-            "public":   "LinuxHost.snmpwalk",
-            "toto":     "Linksys.snmpwalk"
+            "v2public": "Linksys.snmpwalk",
+            "v2linux":  "LinuxHost.snmpwalk"
         }
     }
 
