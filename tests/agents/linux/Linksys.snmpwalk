@@ -1,0 +1,11 @@
+
+# This file has been walked from demo.snmplabs.com (see http://snmpsim.sourceforge.net/public-snmp-simulator.html)
+# Following lines start with a tab
+	.1.3.6.1.2.1.1.1.0 = STRING: BEFSX41
+	.1.3.6.1.2.1.1.2.0 = OID: .1.3.6.1.4.1.3955.1.1
+	.1.3.6.1.2.1.1.3.0 = 638239
+	.1.3.6.1.2.1.1.4.0 = STRING: Linksys
+	.1.3.6.1.2.1.1.5.0 = STRING: isp-gw
+	.1.3.6.1.2.1.1.6.0 = STRING: 4, Petersburger strasse, Berlin, Germany
+	.1.3.6.1.2.1.1.8.0 = 4
+	.1.3.6.1.2.1.1.8.0 = No more variables left in this MIB View (It is past the end of the MIB tree)

@@ -1,0 +1,54 @@
+{
+    "name":     "Mixed device",
+    "engineID": "mixed",
+    "active":	"True",
+
+    "listen": {
+        "udp": [ "127.0.0.1:33400", "127.0.0.1:33401" ],
+        "udp6":  "[::1]:33401"
+    },
+
+    "snmpv1": {
+        "users": [
+            {
+                "name":      "public"
+            }
+        ],
+
+        "mib": {
+            "public":   "Linksys.snmpwalk"
+        }
+    },
+
+    "snmpv2c": {
+        "users": [
+            { "name": "public"},
+            { "name": "toto"}
+        ],
+
+        "mib": {
+            "public":   "Solaris.snmpwalk",
+            "toto":     "WindowsXp.snmpwalk"
+        }
+    },
+
+    "snmpv3": {
+
+        "users": [
+            {
+            	"name":      "usr-snmp",
+                "authAlgo":  "sha",
+                "privAlgo":  "aes",
+                "authPass":  "test-auth-password",
+                "privPass":  "test-priv-password"
+            }
+        ],
+
+        "mib": {
+    	    "":                 "Solaris.snmpwalk",
+    	    "Linksys":          "Linksys.snmpwalk",
+    	    "Windows-snmpwalk": "WindowsXp.snmpwalk",
+            "Windows-sapwalk":  "WindowsXp.sapwalk"
+        }
+    }
+}

@@ -1,0 +1,34 @@
+{
+    "name": 	"linux",
+    "active":	"True",
+
+    "listen": {
+        "udp": "127.0.0.1:33336"
+    },
+
+    "snmpv1": {
+        "users": [
+            {
+            	"name":      "public"
+            }
+        ],
+
+        "mib": {
+            "public":   "LinuxHost.snmpwalk"
+        }
+    },
+
+    "snmpv2c": {
+        "users": [
+            { "name": "public"},
+            { "name": "toto"}
+        ],
+
+        "mib": {
+            "public":   "LinuxHost.snmpwalk",
+            "toto":     "Linksys.snmpwalk"
+        }
+    }
+
+}
+

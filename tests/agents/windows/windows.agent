@@ -1,0 +1,31 @@
+{
+    "name":     "windows",
+    "engineID": "windows",
+    "active":	"True",
+
+    "listen": {
+        "udp": [
+        	"127.0.0.1:33333",
+        	"127.0.0.1:33337"
+        ]
+    },
+
+    "snmpv3": {
+
+        "users": [
+            {
+            	"name":      "usr-snmp",
+                "authAlgo":  "sha",
+                "privAlgo":  "aes",
+                "authPass":  "test-auth-password",
+                "privPass":  "test-priv-password"
+            }
+        ],
+
+        "mib": {
+    	    "":         "WindowsXp.snmpwalk",
+    	    "snmpwalk": "WindowsXp.snmpwalk",
+            "snmprec":  "WindowsXp.snmprec"
+        }
+    }
+}

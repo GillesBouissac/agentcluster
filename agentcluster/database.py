@@ -1,0 +1,212 @@
+from pyasn1.compat.octets import str2octs
+from agentcluster import confdir
+from whichdb import whichdb
+import anydbm as dbm
+import logging
+import os
+import sys
+
+logger = logging.getLogger('agentcluster.database')
+
+def oid2str( oid ):
+    return ".".join( [ '%s' % x for x in oid ] )
+
+def str2oid( oidstr ):
+    return [ int(x) for x in oidstr.split(".") ]
+
+class RecordIndex:
+    def __init__(self, textFile, textParser):
+        self.__textFile = textFile
+        self.textParser = textParser
+        self.__dbFile = textFile
+        self.__dbFile = self.__dbFile + os.path.extsep + 'dbm'
+        self.__dbFile = os.path.join(confdir.cache, os.path.splitdrive(self.__dbFile)[1].replace(os.path.sep, '_'))
+        self.__db = self.__text = None
+        self.__dbType = '?'
+
+    def __str__(self):
+        return 'Data file %s, %s-indexed, %s' % (
+            self.__textFile, self.__dbType, self.__db and 'opened' or 'closed'
+        )
+
+    def isOpen(self):
+        return self.__db is not None
+
+    def check_cache(self,cachedir):
+        if not os.path.exists(cachedir):
+            logger.info ( 'Creating cache directory %s...', cachedir );
+            try:
+                os.makedirs(cachedir)
+            except OSError:
+                logger.critical( 'ERROR: %s: %s', cachedir, sys.exc_info()[1] );
+                sys.exit(-1)
+            else:
+                logger.debug ( 'Cache directory created' );
+
+    def isUpToDate(self):
+        """ Check if index database is up to date """
+        textFileStamp = os.stat(self.__textFile)[8]
+        upToDate      = False
+        for dbFile in ( self.__dbFile + os.path.extsep + 'db', self.__dbFile ):
+            if not os.path.exists(dbFile):
+                # Database doesn't exist, try next one
+                continue;
+            # From here, database exists
+            if textFileStamp >= os.stat(dbFile)[8]:
+                # it is older than source file: not up to date
+                break;
+            if not whichdb(dbFile):
+                # Not in a readable format
+                break;
+            # Everything is ok with the existing database
+            upToDate = True
+            break;
+        return upToDate
+
+    def getHandles(self):
+        if not self.isOpen():
+            self.open()
+        return self.__text, self.__db
+
+    def refresh (self, validateData=False):
+        """ Rebuild the index from source file """
+
+        # The cache directory must exist
+        self.check_cache(confdir.cache)
+
+        # In case something has already been done with this objecttextFileStamp
+        self.close();
+
+        # these might speed-up indexing
+        db_oids = []
+        open_flags = 'nfu' 
+        while open_flags:
+            try:
+                db = dbm.open(self.__dbFile, open_flags)
+            except Exception:
+                open_flags = open_flags[:-1]
+                if not open_flags:
+                    raise
+            else:
+                break
+
+        text = open(self.__textFile, 'rb')
+
+        logger.debug ( 'Building index %s for data file %s (open flags \"%s\")', self.__dbFile, self.__textFile, open_flags );
+
+        # Build the "direct" indexes to have direct access to values
+        nb_direct = nb_next = 0
+        lineNo = 0
+        offset = 0
+        while 1:
+
+            try:
+                oid  = None
+                line = ""
+                while oid is None:
+                    offset += len(line)
+                    line = text.readline()
+                    lineNo += 1
+                    if not line:
+                        break
+                    oid, tag, val = self.textParser.grammar.parse(line)
+            except Exception:
+                db.close()
+                exc = sys.exc_info()[1]
+                try:
+                    os.remove(self.__dbFile)
+                except OSError:
+                    pass
+                raise Exception('Data error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
+
+            if not oid:
+                break
+
+            if validateData:
+                try:
+                    self.textParser.evaluateOid(oid)
+                except Exception:
+                    db.close()
+                    exc = sys.exc_info()[1]
+                    try:
+                        os.remove(self.__dbFile)
+                    except OSError:
+                        pass
+                    raise Exception( 'OID error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
+                try:
+                    self.textParser.evaluateValue( oid, tag, val, dataValidation=True)
+                except Exception:
+                    logger.warn ( 'Validation error at line %s, value %r: %s', lineNo, val, sys.exc_info()[1] );
+
+            # for lines serving subtrees, type is empty in tag field
+            db[oid] = '%s,%d,%s,%s' % (oid, tag[0] == ':', tag, val)
+            db_oids.append ( str2oid(oid) );
+            nb_direct = nb_direct+1
+            offset += len(line)
+
+        # Build the "next" indexes to have direct access to next values
+
+        # First we need oids splitted into nodes. We cannot sort them by string
+        #   comparison: "1"<"10"<"2" and we want 1<2<10
+        db_oids.sort()
+        for i in range(len(db_oids)-1):
+            oid         = db_oids[i]
+            oid_txt     = oid2str(oid)
+            # The easy one
+            key      = "next."+oid_txt
+            db[key]  = oid2str(db_oids[i+1])
+            nb_next  = nb_next+1
+            # Now the parents: their next is current oid unless they already have one next
+            nodes = oid[:-1]
+            for n in range(len(nodes)):
+                key     = "next." + oid2str(nodes[:n+1])
+                if not db.has_key(key):
+                    db[key] = oid_txt
+                    nb_next = nb_next+1
+        # The last one have no next
+        key = "next." + oid2str(db_oids[ len(db_oids)-1 ])
+        db[key] = ""
+        nb_next = nb_next+1
+
+        text.close()
+        db.close()
+        logger.debug ( 'Index ok: %d direct entries, %d next entries' % (nb_direct,nb_next) );
+        self.__dbType = whichdb(self.__dbFile)
+
+    def create(self, forceIndexBuild=False, validateData=False):
+        if not self.isUpToDate() or forceIndexBuild:
+            self.refresh(validateData);
+        self.__dbType = whichdb(self.__dbFile)
+        return self
+
+    def lookup(self, oid):
+        """ Returns the record which oid is exactly the given one or None if the record doesn't exist """
+        return self.__db[oid].split(str2octs(','), 3)
+
+    def lookup_next(self, oid):
+        """ Returns the record which oid is the closest after the given one or None if none exist after """
+        next_oid = self.__db["next." + oid]
+        return self.lookup(next_oid)
+
+    def dump(self):
+        """ Dump current database """
+        self.dump_from_file(self.__dbFile)
+
+    def dump_from_file(self, dbfile):
+        """ Dump a database in debug log level """
+        logger.debug ( "Dumping database %s", dbfile );
+        db = dbm.open(dbfile, 'r')
+        oids = db.keys();
+        oids.sort()
+        for oid in oids:
+            logger.debug ( "  %s = %s", oid, db[oid] );
+        db.close()
+
+    def open(self):
+        self.__text = open(self.__textFile, 'rb')
+        self.__db = dbm.open(self.__dbFile)
+
+    def close(self):
+        if self.__text!=None:self.__text.close()
+        if self.__db!=None:self.__db.close()
+        self.__db = self.__text = None
