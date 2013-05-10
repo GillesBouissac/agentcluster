@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 #
+from agentcluster import AnyJsonDecoder
+from agentcluster.database import Database
+from agentcluster.exception import ClusterException
+from agentcluster.snmpsetup import *
+from agentcluster.transport import SocketHelper
+from datetime import datetime, timedelta
 from multiprocessing import Process
 from multiprocessing.queues import JoinableQueue
 from pysnmp import debug
 from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, context
-from agentcluster import AnyJsonDecoder
-from agentcluster.exception import ClusterException
-from agentcluster.snmpsetup import *
-from agentcluster.transport import SocketHelper
 import logging.config
 import os
 import signal
@@ -92,7 +94,6 @@ class Agent(Process):
             cmdrsp.NextCommandResponder(snmpEngine, snmpContext)
             cmdrsp.BulkCommandResponder(snmpEngine, snmpContext)
 
-
             logger.debug ( 'Agent "%s": Configured', self.name );
             self.tokens_start.task_done();
 
@@ -109,7 +110,7 @@ class Agent(Process):
         except KeyboardInterrupt:
             logger.debug ( 'Agent "%s": interrupted', self.name );
         except Exception:
-            logger.error ( 'Unexpected exception cached in agent: %s', sys.exc_info()[1] );
+            logger.error ( 'Unexpected exception catched in agent: %s', sys.exc_info()[1] );
             logger.debug ( "", exc_info=True );
         finally:
             if transportDispatcher != None:
@@ -144,17 +145,30 @@ class Watchdog(threading.Thread):
     
     def __init__(self, parent_pid, monitoring_period):
         threading.Thread.__init__(self)
-        self.parent_pid        = parent_pid
-        self.monitoring_period = monitoring_period
-        self.daemon            = True
+        self.parent_pid     = parent_pid
+        self.period         = timedelta ( seconds = monitoring_period )
+        self.daemon         = True
+
+    def conf_check(self):
+        for db in Database.all:
+            if not db.isUpToDate():
+                logger.info ( 'Configuration file changed: %s', db.sourceFile );
+                db.refresh();
+        return
 
     def run(self):
         if self.parent_pid is None:
             logger.debug ( 'No parent process to monitor, watchdog disabled' );
             return
-        logger.debug ( 'Parent watchdog started, period: %ss', self.monitoring_period );
+        logger.info ( 'Agent watchdog started' );
+        period_start = datetime.now()-self.period
         while True:
-            time.sleep(self.monitoring_period)
+            if (datetime.now()-period_start) >= self.period:
+                self.conf_check()
+                # Start a new period
+                period_start = datetime.now()
+            # Polling for shutdown must be fast
+            time.sleep(1)
             try:
                 os.kill(self.parent_pid, 0)
             except:
@@ -163,6 +177,7 @@ class Watchdog(threading.Thread):
                 # Rage quit should be universal
                 os.kill(os.getpid(), signal.SIGKILL)
                 return
+
 
 if __name__ == "__main__":
     """ Use this when debugging agents """

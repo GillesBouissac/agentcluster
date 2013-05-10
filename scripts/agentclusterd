@@ -89,7 +89,7 @@ class AgentCluster:
         except KeyboardInterrupt:
             logger.info ( 'Server interrupted' );
         except Exception:
-            logger.error ( 'Exception cached in main process: %s', sys.exc_info()[1] );
+            logger.error ( 'Exception catched in main process: %s', sys.exc_info()[1] );
             logger.debug ( "", exc_info=True );
         finally:
             # First stop the monitoring to avoid restarting killed agents
@@ -116,12 +116,10 @@ class Watchdog(threading.Thread):
     def parse_confs(self,conf_dir):
         agentBrowser = AgentBrowser();
         try:
-            logger.debug ( 'Parsing conf directories for agent specifications' );
             agentBrowser.browse(conf_dir)
             agents = {}
             for conf in agentBrowser.foundFiles:
                 conf = os.path.abspath(conf)
-                logger.debug ( 'Found agent specifications in %s', conf );
                 # Records this new agent placeholder
                 agents[conf] = Any( **{"sum":0, "current_sum":md5sum(conf), "handle":None} );
         except Exception:
@@ -135,7 +133,7 @@ class Watchdog(threading.Thread):
             agent = self.agents[conf].handle
             # Kill a previous agent if any
             if agent!=None:
-                logger.info ( 'Agent [%d] stopped: %s', agent.ident, conf );
+                logger.info ( 'Agent "%s" stopped: %s', agent.name, conf );
                 agent.terminate()
                 self.agents[conf].handle = None
         except Exception:
@@ -154,7 +152,7 @@ class Watchdog(threading.Thread):
             agent.start()
             self.tokens_start.put(object())
             self.tokens_start.join()
-            logger.info ( 'Agent [%d] started: %s', agent.ident, conf );
+            logger.info ( 'Agent "%s" started: %s', agent.name, conf );
         except Exception:
             logger.error ( 'Exception launching agent: %s', sys.exc_info()[1] );
             logger.debug ( "", exc_info=True );
@@ -189,17 +187,17 @@ class Watchdog(threading.Thread):
                 logger.debug ( 'Agent need to be started: %s', conf );
                 need_restart=True
             elif not infos.handle.is_alive():
-                logger.debug ( 'Agent has been killed: %s', conf );
+                logger.debug ( 'Agent "%s" has been killed: %s', infos.handle.name, conf );
                 need_restart=True
             elif infos.current_sum!=infos.sum:
-                logger.debug ( 'Agent configuration has been changed: %s', conf );
+                logger.debug ( 'Agent "%s" configuration has been changed: %s', infos.handle.name, conf );
                 need_restart=True
             if need_restart:
                 self.agent_stop(conf);
                 self.agent_start(conf,infos.current_sum);
 
     def run(self):
-        logger.info ( 'Agent monitoring started' );
+        logger.info ( 'Master watchdog started' );
         period_start = datetime.now()-self.period
         while True:
             if (datetime.now()-period_start) >= self.period:

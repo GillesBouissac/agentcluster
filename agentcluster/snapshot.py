@@ -1,7 +1,7 @@
+from agentcluster.database import Database, oid2str
 from pyasn1.type import univ
 from pysnmp.smi import exval
 from pysnmp.smi.instrum import AbstractMibInstrumController
-from agentcluster.database import RecordIndex, oid2str
 import logging
 
 __all__ = ["SnapshotFile", "SnapshotFileController"]
@@ -15,28 +15,24 @@ class SnapshotFile (AbstractMibInstrumController):
     def __init__(self, textFile, textParser):
         self.__textParser = textParser
         self.__textFile = textFile
-        self._recordIndex = RecordIndex(self.__textFile, self.__textParser)
+        self._db = Database(self.__textFile, self.__textParser)
 
-    def indexText(self, forceIndexBuild=False):
-        self._recordIndex.create(forceIndexBuild, True)
+    def indexText(self):
+        self._db.create()
         return self
 
     def close(self):
-        self._recordIndex.close()
+        self._db.close()
 
     def openDb(self):
-        if not self._recordIndex.isOpen():
+        if not self._db.isOpen():
             if len(SnapshotFile.openedQueue) > self.maxQueueEntries:
                 SnapshotFile.openedQueue[0].close()
                 del SnapshotFile.openedQueue[0]
             SnapshotFile.openedQueue.append(self)
-            self._recordIndex.open()
+            self._db.open()
 
     def processVarBinds(self, varBinds, nextFlag=False, setFlag=False):
-
-        if not self._recordIndex.isUpToDate():
-            logger.info ( 'Configuration file changed: %s', self.__textFile );
-            self._recordIndex.refresh(True);
 
         self.openDb()
 
@@ -46,14 +42,14 @@ class SnapshotFile (AbstractMibInstrumController):
 
             if nextFlag:
                 try:
-                    (_oid, _, _tag, _val) = self._recordIndex.lookup_next( textOid )
+                    (_oid, _, _tag, _val) = self._db.lookup_next( textOid )
                     subtreeFlag = False
                 except KeyError:
                     rspVarBinds.append((oid, exval.endOfMib))
                     continue
             else:
                 try:
-                    (_oid, subtreeFlag, _tag, _val) = self._recordIndex.lookup( textOid )
+                    (_oid, subtreeFlag, _tag, _val) = self._db.lookup( textOid )
                     subtreeFlag, int(subtreeFlag), True
                 except KeyError:
                     rspVarBinds.append((oid, exval.noSuchInstance))
@@ -66,7 +62,7 @@ class SnapshotFile (AbstractMibInstrumController):
         return rspVarBinds
  
     def __str__(self):
-        return str(self._recordIndex)
+        return str(self._db)
 
 #
 # Maps one or more snapshot file to SNMP engine

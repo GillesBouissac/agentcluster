@@ -33,7 +33,7 @@ class SnmpConfHelperBase:
             msg = 'Usupported snapshot file extension, snapshot ignored %s' % (snapshotFullPath)
             logger.warning ( msg );
             return;
-        snapshotFile = SnapshotFile( snapshotFullPath, self.recordSet[dExt]).indexText(forceIndexBuild=False)
+        snapshotFile = SnapshotFile( snapshotFullPath, self.recordSet[dExt]).indexText()
         return SnapshotFileController(snapshotFile)
 
 class SnmpConfHelperV1(SnmpConfHelperBase):

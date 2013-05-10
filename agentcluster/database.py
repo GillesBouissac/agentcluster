@@ -1,4 +1,4 @@
-from agentcluster import confdir, __version__
+from agentcluster import confdir, md5sum
 from pyasn1.compat.octets import str2octs
 from pyasn1.type import univ
 from whichdb import whichdb
@@ -15,19 +15,27 @@ def oid2str( oid ):
 def str2oid( oidstr ):
     return [ int(x) for x in oidstr.split(".") ]
 
-class RecordIndex:
+class Database:
+
+    # Version of the database structure
+    version = "1.0"
+
+    # Maintain the list of all declared databases
+    all = []
+
     def __init__(self, textFile, textParser):
-        self.__textFile = textFile
+        self.sourceFile = textFile
         self.textParser = textParser
         self.__dbFile = textFile
         self.__dbFile = self.__dbFile + os.path.extsep + 'dbm'
         self.__dbFile = os.path.join(confdir.cache, os.path.splitdrive(self.__dbFile)[1].replace(os.path.sep, '_'))
         self.__db = self.__text = None
         self.__dbType = '?'
+        Database.all.append(self)
 
     def __str__(self):
         return 'Data file %s, %s-indexed, %s' % (
-            self.__textFile, self.__dbType, self.__db and 'opened' or 'closed'
+            self.sourceFile, self.__dbType, self.__db and 'opened' or 'closed'
         )
 
     def isOpen(self):
@@ -46,22 +54,25 @@ class RecordIndex:
 
     def isUpToDate(self):
         """ Check if index database is up to date """
-        textFileStamp = os.stat(self.__textFile)[8]
+        textFileSum = md5sum(self.sourceFile)
         upToDate      = False
         for dbFile in ( self.__dbFile + os.path.extsep + 'db', self.__dbFile ):
             try:
                 if not os.path.exists(dbFile):
                     # Database doesn't exist, try next one
                     continue;
-                # From here, database exists
-                if textFileStamp >= os.stat(dbFile)[8]:
-                    # it is older than source file: not up to date
-                    break;
                 if not whichdb(dbFile):
                     # Not in a readable format
+                    logger.debug ( 'Database not in a readable format: %s', dbFile );
                     break;
+                # From here, database exists and is readable
                 db = dbm.open(dbFile)
-                if not db["__version__"] == __version__:
+                if textFileSum != db["__source_md5__"]:
+                    logger.debug ( 'Source file checksum differs from the one used to build the database: %s', self.sourceFile );
+                    db.close()
+                    break;
+                if not db["__version__"] == Database.version:
+                    logger.debug ( 'Database version "%s" doesn\'t match this version "%s"', db["__version__"], Database.version );
                     db.close()
                     break;
                 db.close()
@@ -72,7 +83,7 @@ class RecordIndex:
                 pass
         return upToDate
 
-    def refresh (self, validateData=False):
+    def refresh (self):
         """ Rebuild the index from source file """
 
         # The cache directory must exist
@@ -87,7 +98,8 @@ class RecordIndex:
         while open_flags:
             try:
                 db = dbm.open(self.__dbFile, open_flags)
-                db["__version__"] = __version__
+                db["__version__"]    = Database.version
+                db["__source_md5__"] = md5sum(self.sourceFile)
             except Exception:
                 open_flags = open_flags[:-1]
                 if not open_flags:
@@ -95,9 +107,9 @@ class RecordIndex:
             else:
                 break
 
-        text = open(self.__textFile, 'rb')
+        text = open(self.sourceFile, 'rb')
 
-        logger.debug ( 'Building index %s for data file %s (open flags \"%s\")', self.__dbFile, self.__textFile, open_flags );
+        logger.debug ( 'Building index %s for data file %s (open flags \"%s\")', self.__dbFile, self.sourceFile, open_flags );
 
         # Build the "direct" indexes to have direct access to values
         nb_direct = nb_next = 0
@@ -119,7 +131,7 @@ class RecordIndex:
                     os.remove(self.__dbFile)
                 except OSError:
                     pass
-                raise Exception('Data error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
+                raise Exception('Data error at %s:%d: %s' % ( self.sourceFile, lineNo, exc ) )
 
             try:
                 _oid     = self.textParser.evaluateOid(oid)
@@ -130,7 +142,7 @@ class RecordIndex:
                     os.remove(self.__dbFile)
                 except OSError:
                     pass
-                raise Exception( 'OID error at %s:%d: %s' % ( self.__textFile, lineNo, exc ) )
+                raise Exception( 'OID error at %s:%d: %s' % ( self.sourceFile, lineNo, exc ) )
 
             try:
                 _tag = self.textParser.evaluateTag(tag)
@@ -176,9 +188,9 @@ class RecordIndex:
         logger.debug ( 'Index ok: %d direct entries, %d next entries' % (nb_direct,nb_next) );
         self.__dbType = whichdb(self.__dbFile)
 
-    def create(self, forceIndexBuild=False, validateData=False):
-        if not self.isUpToDate() or forceIndexBuild:
-            self.refresh(validateData);
+    def create(self):
+        if not self.isUpToDate():
+            self.refresh();
         self.__dbType = whichdb(self.__dbFile)
         return self
 
