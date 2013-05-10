@@ -3,6 +3,7 @@ __version__ = '0.1.0'
 
 import hashlib
 import json
+import os
 
 class Any:
     """ Class intended to be filled with members read from a JSON file """
@@ -29,3 +30,16 @@ def md5sum(filename):
         for chunk in iter(lambda: f.read(128*md5.block_size), b''): 
             md5.update(chunk)
     return md5.hexdigest()
+
+def searchFiles (fsElements, acceptCb=None):
+    foundFiles = []
+    for fsElement in fsElements:
+        fsElement = os.path.abspath(fsElement);
+        for root, _, filenames in os.walk(fsElement, followlinks=True):
+            for filename in filenames:
+                fullpath = root + os.path.sep + filename
+                fext = os.path.splitext(filename)[1][1:]
+                if acceptCb and not acceptCb(fullpath, fext):
+                    continue
+                foundFiles.append(fullpath);
+    return foundFiles

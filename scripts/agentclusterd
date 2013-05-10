@@ -43,9 +43,8 @@
 #       OS:               Only tested on Linux environment (Ubuntu 64/Squeeze 64).
 #
 
-from agentcluster import __version__, confdir, Any, md5sum
+from agentcluster import __version__, confdir, Any, md5sum, searchFiles
 from agentcluster.agent import Agent
-from agentcluster.browser import AgentBrowser
 from datetime import datetime, timedelta
 from multiprocessing import JoinableQueue
 from multiprocessing.process import current_process
@@ -121,11 +120,9 @@ class Watchdog(threading.Thread):
         self.tokens_start = JoinableQueue()
 
     def parse_confs(self,conf_dir):
-        agentBrowser = AgentBrowser();
         try:
-            agentBrowser.browse(conf_dir)
             agents = {}
-            for conf in agentBrowser.foundFiles:
+            for conf in searchFiles(conf_dir, lambda _,ext: ext=='agent'):
                 conf = os.path.abspath(conf)
                 # Records this new agent placeholder
                 agents[conf] = Any( **{"sum":0, "current_sum":md5sum(conf), "handle":None} );

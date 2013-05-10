@@ -4,8 +4,7 @@
 # Author:       Gilles Bouissac
 # Description:  Dump the content of the index database in readable form
 #
-from agentcluster import confdir
-from agentcluster.browser import Browser
+from agentcluster import confdir, searchFiles
 from agentcluster.database import Database
 import logging.config
 
@@ -13,10 +12,7 @@ logger = logging.getLogger('agentcluster.dbdump')
 logging.config.fileConfig( "agentcluster-log.conf" )
 
 # Browses databases:
-br = Browser()
-br.browse( [confdir.cache] )
-
 db = Database( "", None )
-for dbfile in br.foundFiles:
+for dbfile in searchFiles( [confdir.cache] ):
     db.dump_from_file(dbfile)
 
