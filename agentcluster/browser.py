@@ -9,8 +9,9 @@ class Browser:
     """
         General file bowser from a given list of filesystem objects.
     """
-    # Conf files found after call to browse()
-    foundFiles = [];
+    def __init__(self):
+        # Conf files found after call to browse()
+        self.foundFiles = [];
 
     def browse (self, fsElements):
         for fsElement in fsElements:

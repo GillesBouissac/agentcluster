@@ -101,7 +101,8 @@ for x in os.walk('tests'):
         ( 'agentcluster/' + '/'.join(os.path.split(x[0])),
           glob.glob(os.path.join(x[0], '*.snmprec')) + \
           glob.glob(os.path.join(x[0], '*.snmpwalk')) + \
-          glob.glob(os.path.join(x[0], '*.sapwalk')) )
+          glob.glob(os.path.join(x[0], '*.sapwalk')) + \
+          glob.glob(os.path.join(x[0], '*.agent')) )
     )
 
 # install debian service script as data_files
@@ -143,7 +144,7 @@ if 'py2exe' in sys.argv:
     del params['data_files']  # no need to store these in .exe
 
     # additional modules used by agentcluster but not seen by py2exe
-    for m in ('dbm', 'gdbm', 'dbhash', 'dumbdb', 'shelve', 'random', 'math', 'bisect',
+    for m in ('dbm', 'gdbm', 'dbhash', 'dumbdb', 'shelve', 'random', 'math', 'bisect', 'hashlib',
               'sqlite3', 'subprocess', 'logging', 'argparse', 'threading', 'multiprocessing', 'time', 'datetime'):
         try:
             __import__(m)

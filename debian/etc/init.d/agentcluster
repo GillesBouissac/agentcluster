@@ -1,39 +1,38 @@
 #!/bin/sh
 
 ### BEGIN INIT INFO
-# Provides: agentcluster
-# Required-Start: $syslog
-# Required-Stop: $syslog
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 6
+# Provides:          agentcluster
+# Required-Start:    $remote_fs $network $syslog
+# Required-Stop:     $remote_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
 # Short-Description: SNMP Agent cluster daemon
-# Description: Agent cluster allow simulation of multiple SNMP Agents on the same host
+# Description:       Agent cluster allow simulation of multiple SNMP Agents on the same host
 ### END INIT INFO
 
 #
 # Author: Gilles Bouissac
-# Based on script by Dan MacKinlay
-# https://gist.github.com/howthebodyworks/176149
 #
+
+# Do NOT "set -e" as this script is based on returns values <>0
 
 DESC="SNMP Agent cluster daemon"
 NAME=agentcluster
+DAEMON_UID=root
+DAEMON_GID=root
 DAEMON=/usr/local/bin/agentclusterd
-DAEMON_ARGS="--log-config /usr/local/agentcluster/scripts/agentcluster-log.conf --cache-dir /var/local/agentcluster/ --monitoring 60"
+DAEMON_ARGS="--log-config /etc/agentcluster/agentcluster-log.conf --cache-dir /var/local/agentcluster/ --monitoring 60"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
-# Exit if the package is not installed
+# This script is a conf file and could be present while the binaries
+#   has been removed. We must check this first
 [ -x "$DAEMON" ] || exit 0
 
-# Read configuration variable file if it is present
+# Read configuration variable file if any
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+# Imports LSB functions.
 . /lib/lsb/init-functions
 
 #
@@ -45,8 +44,8 @@ do_start()
     # 0 if daemon has been started
     # 1 if daemon was already running
     # 2 if daemon could not be started
-    start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null || return 1
-    start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $DAEMON_ARGS || return 2
+    start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile --chuid $DAEMON_UID:$DAEMON_GID --exec $DAEMON --test > /dev/null || return 1
+    start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile --chuid $DAEMON_UID:$DAEMON_GID --exec $DAEMON --background -- $DAEMON_ARGS || return 2
 }
 
 #
@@ -63,16 +62,11 @@ do_stop()
     RETVAL="$?"
     [ "$RETVAL" = 2 ] && return 2
 
-    # Wait for children to finish too if this is a daemon that forks
-    # and if the daemon is only ever run from this initscript.
-    # If the above conditions are not satisfied then add some other code
-    # that waits for the process to drop all resources that could be
-    # needed by services started subsequently. A last resort is to
-    # sleep for some time.
+    # Wait for child agents to finish, they are named with the same path
     start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
     [ "$?" = 2 ] && return 2
 
-    # Many daemons don't delete their pidfiles when they exit.
+    # Removes pidfile
     rm -f $PIDFILE
     return "$RETVAL"
 }
@@ -80,22 +74,35 @@ do_stop()
 case "$1" in
 
     start)
-        [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+        log_daemon_msg "Starting $DESC" "$NAME"
         do_start
         case "$?" in
-            0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-            2)   [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+            0|1) log_end_msg 0 ;;
+            2)   log_end_msg 1 ;;
         esac
-    ;;
+        ;;
 
     stop)
-        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+        log_daemon_msg "Stopping $DESC" "$NAME"
         do_stop
         case "$?" in
-            0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-            2)   [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+            0|1) log_end_msg 0 ;;
+            2)   log_end_msg 1 ;;
         esac
-    ;;
+        ;;
+
+    status)
+        log_daemon_msg "Checking status of $DESC"
+        start-stop-daemon --status --pidfile $PIDFILE --name $NAME
+        case "$?" in
+            0) log_end_msg 0 ;;
+            *)
+                # Removes pidfile
+                rm -f $PIDFILE
+                log_end_msg 1
+                ;;
+        esac
+        ;;
 
     restart|force-reload)
         log_daemon_msg "Restarting $DESC" "$NAME"
@@ -108,18 +115,18 @@ case "$1" in
                     1) log_end_msg 1 ;; # Old process is still running
                     *) log_end_msg 1 ;; # Failed to start
                 esac
-            ;;
+                ;;
     
             *)
                 # Failed to stop
                 log_end_msg 1
-            ;;
+                ;;
         esac
-    ;;
+        ;;
 
     *)
-        echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
         exit 3
-    ;;
+        ;;
 esac
 

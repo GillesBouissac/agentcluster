@@ -1,6 +1,7 @@
 # http://www.python.org/dev/peps/pep-0396/
 __version__ = '0.1.0'
 
+import hashlib
 import json
 
 class Any:
@@ -21,3 +22,10 @@ class AnyJsonDecoder(json.JSONDecoder):
         inst = Any(**args)
         return inst
 
+# Code from http://stackoverflow.com/a/11143944/2366884
+def md5sum(filename):
+    md5 = hashlib.md5()
+    with open(filename,'rb') as f: 
+        for chunk in iter(lambda: f.read(128*md5.block_size), b''): 
+            md5.update(chunk)
+    return md5.hexdigest()

@@ -26,6 +26,7 @@ class TransportHelperBase:
     idx         = 0;
     domain      = None;
     pclass      = None;
+
     def parseAddress (self, params):
         pass;
 

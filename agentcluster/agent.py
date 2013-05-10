@@ -29,32 +29,29 @@ class Agent(Process):
         in a single wait which could give a solution to this lack.
     """
 
-    #
-    # The following parameters are intended to be set after JSON conf file has been read in method parse
-    #
-    # Name of this virtual agent
-    name = None;
-    engineID = None;
-    # Listen parameters
-    listen = None;
-    # Parameters for variations used by this agent
-    variation = None;
-    # Parameters for each snmp version
-    snmpv1  = None;
-    snmpv2c = None;
-    snmpv3  = None;
-
     def __init__(self, confFile, tokens_start, parent_pid, monitoring_period):
         Process.__init__(self)
-
         self.monitoring_period = monitoring_period
         self.parent_pid = parent_pid
         self.tokens_start = tokens_start
         self.socketHelper = SocketHelper()
 
+        # The following parameters are intended to be set after JSON conf file has been read in method parse
+
+        # Name of this virtual agent
+        self.name = "";
+        self.engineID = None;
+        # Listen parameters
+        self.listen = None;
+        # Parameters for variations used by this agent
+        self.variation = None;
+        # Parameters for each snmp version
+        self.snmpv1  = None;
+        self.snmpv2c = None;
+        self.snmpv3  = None;
+
         # Set configuration from file
         self.parse (confFile)
-        pass;
 
     def run(self):
         transportDispatcher = None;
@@ -127,10 +124,11 @@ class Agent(Process):
     def parse(self, confFile):
         parsed = AnyJsonDecoder().decode( open(confFile).read() )
         self.__dict__.update(parsed.__dict__);
-        if self.name is None:
+        if parsed.name is None:
             msg = 'Agent name is mandatory in conf file %s' % (confFile);
             logger.error ( msg );
             raise ClusterException(msg);
+        self.name = parsed.name
         if self.snmpv1 is None and self.snmpv2c is None and self.snmpv3 is None:
             msg = 'Agent "%s": no protocol specified in conf file %s' % (self.name, confFile);
             logger.error ( msg );
@@ -168,7 +166,7 @@ class Watchdog(threading.Thread):
 
 if __name__ == "__main__":
     """ Use this when debugging agents """
-    logging.config.fileConfig( "../agentcluster-log.conf" )
+    logging.config.fileConfig( "../scripts/agentcluster-log.conf" )
     pysnmplogger = logging.getLogger('pysnmp')
     if pysnmplogger.isEnabledFor(logging.DEBUG):
         debug.setLogger(debug.Debug("all"))

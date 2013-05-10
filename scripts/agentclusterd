@@ -43,12 +43,12 @@
 #       OS:               Only tested on Linux environment (Ubuntu).
 #
 
-from multiprocessing import JoinableQueue
-from pysnmp import debug
-from agentcluster import __version__, confdir, Any
+from agentcluster import __version__, confdir, Any, md5sum
 from agentcluster.agent import Agent
 from agentcluster.browser import AgentBrowser
 from datetime import datetime, timedelta
+from multiprocessing import JoinableQueue
+from pysnmp import debug
 import argparse
 import logging.config
 import os
@@ -63,65 +63,20 @@ pysnmplogger = logging.getLogger('pysnmp')
 class AgentCluster:
     """ Main process class """
 
-    # List of instantiated agents indexed by their conf file full path
-    agents = {};
-    # Agent restart delay after crash
-    monitoring_period = 30
-    # This tokens will be used to wait for child Agents configuration
-    tokens_start = JoinableQueue()
-    # The monitoring thread
-    watchdog = None
-
     def __init__(self, options):
+        # Agent restart delay after crash
+        self.monitoring_period = 30
+        # The monitoring thread
+        self.watchdog = None
+
         if options.monitoring is not None:
             self.monitoring_period = options.monitoring
-
-    def parse_confs(self,conf_dir):
-        logger.info ( 'Parsing conf directories for agent specifications' );
-        agentBrowser = AgentBrowser();
-        agentBrowser.browse(conf_dir)
-        for conf in agentBrowser.foundFiles:
-            conf = os.path.abspath(conf)
-            logger.debug ( 'Found agent specifications in %s', conf );
-            # Records this new agent placeholder
-            self.agents[conf] = Any( **{"stamp":os.stat(conf)[8], "handle":None} );
-
-    def relaunch_agent(self, conf):
-        try:
-            agent = self.agents[conf].handle
-            # Kill a previous agent if any
-            if agent!=None:
-                logger.debug ( 'Killing agent %d', agent.ident );
-                agent.terminate()
-                self.agents[conf].handle = None
-            # Instantiate a new agent from this conf file and record it
-            logger.debug ( 'Starting agent for configuration %s', conf );
-            agent = Agent(conf, self.tokens_start, os.getpid(), self.monitoring_period);
-            self.agents[conf].handle = agent
-            self.agents[conf].stamp = os.stat(conf)[8]
-        except Exception:
-            logger.error ( 'Exception launching agent: %s', sys.exc_info()[1] );
-            logger.debug ( "", exc_info=True );
-            return;
-        # In order to sequence child start: give one token and wait till the child is started
-        # This is easier to read logs
-        agent.start()
-        self.tokens_start.put(object())
-        self.tokens_start.join()
 
     def run(self):
 
         try:
             logger.info ( 'Snmp cluster Server starting' );
-
-            # Search for agent specifications
-            self.parse_confs(confdir.data);
-            if len(self.agents)==0:
-                logger.info ( 'No agent configuration found, nothing to do' );
-                return
-
-            logger.debug ( 'Starting agent watchdog' );
-            self.watchdog = Watchdog(self)
+            self.watchdog = Watchdog(self.monitoring_period)
             self.watchdog.start()
 
             # Generates a deadlock to enter in sleep mode
@@ -141,48 +96,123 @@ class AgentCluster:
             if self.watchdog is not None:
                 self.watchdog.shutdown = True
                 self.watchdog.join()
-            for _,infos in self.agents.items():
-                logger.debug ( 'Killing agent %d', infos.handle.ident );
-                infos.handle.terminate()
             logger.info ( 'Snmp cluster Server end' );
             logging.shutdown()
 
 class Watchdog(threading.Thread):
     """ Daemon thread that check the status of each child and restart it if necessary """
 
-    # True when the server is shutting down
-    shutdown = False
-
-    def __init__(self, server):
+    def __init__(self, monitoring_period):
         threading.Thread.__init__(self)
-        self.server   = server
-        self.period   = timedelta ( seconds = self.server.monitoring_period )
+        self.period   = timedelta ( seconds = monitoring_period )
         self.daemon   = True
+        # True when the server is shutting down
+        self.shutdown = False
+        # List of instantiated agents indexed by their conf file full path
+        self.agents = {};
+        # This tokens will be used to wait for child Agents configuration
+        self.tokens_start = JoinableQueue()
+
+    def parse_confs(self,conf_dir):
+        agentBrowser = AgentBrowser();
+        try:
+            logger.debug ( 'Parsing conf directories for agent specifications' );
+            agentBrowser.browse(conf_dir)
+            agents = {}
+            for conf in agentBrowser.foundFiles:
+                conf = os.path.abspath(conf)
+                logger.debug ( 'Found agent specifications in %s', conf );
+                # Records this new agent placeholder
+                agents[conf] = Any( **{"sum":0, "current_sum":md5sum(conf), "handle":None} );
+        except Exception:
+            logger.error ( 'Exception parsing conf %s', sys.exc_info()[1] );
+            logger.debug ( "", exc_info=True );
+            return;
+        return agents
+
+    def agent_stop(self, conf):
+        try:
+            agent = self.agents[conf].handle
+            # Kill a previous agent if any
+            if agent!=None:
+                logger.info ( 'Agent [%d] stopped: %s', agent.ident, conf );
+                agent.terminate()
+                self.agents[conf].handle = None
+        except Exception:
+            logger.error ( 'Exception while killing agent: %s', sys.exc_info()[1] );
+            logger.debug ( "", exc_info=True );
+            return;
+
+    def agent_start(self, conf, conf_sum):
+        try:
+            # Instantiate a new agent from this conf file and record it
+            agent = Agent(conf, self.tokens_start, os.getpid(), self.period.total_seconds());
+            self.agents[conf].handle = agent
+            self.agents[conf].sum    = conf_sum
+            # In order to sequence child start: give one token and wait till the child is started
+            # This is easier to read logs
+            agent.start()
+            self.tokens_start.put(object())
+            self.tokens_start.join()
+            logger.info ( 'Agent [%d] started: %s', agent.ident, conf );
+        except Exception:
+            logger.error ( 'Exception launching agent: %s', sys.exc_info()[1] );
+            logger.debug ( "", exc_info=True );
+            return;
+
+    def agents_check(self):
+        """ Check that every agent is running and launch them if necessary """
+
+        # Builds the list of agents that should be running
+        required_agents = self.parse_confs(confdir.data)
+
+        # Kills running agents that are no more required
+        for (conf,infos) in self.agents.copy().items():
+            if conf not in required_agents:
+                self.agent_stop(conf)
+                del self.agents[conf]
+
+        # Fills ref list with new data
+        if not required_agents:
+            return;
+        for (conf,infos) in required_agents.items():
+            if conf not in self.agents:
+                self.agents[conf] = infos
+            else:
+                self.agents[conf].current_sum = infos.current_sum;
+
+        # Finally start those missing or
+        #         restart those whose configuration has changed
+        for (conf,infos) in self.agents.items():
+            need_restart=False
+            if infos.handle is None: 
+                logger.debug ( 'Agent need to be started: %s', conf );
+                need_restart=True
+            elif not infos.handle.is_alive():
+                logger.debug ( 'Agent has been killed: %s', conf );
+                need_restart=True
+            elif infos.current_sum!=infos.sum:
+                logger.debug ( 'Agent configuration has been changed: %s', conf );
+                need_restart=True
+            if need_restart:
+                self.agent_stop(conf);
+                self.agent_start(conf,infos.current_sum);
 
     def run(self):
         logger.info ( 'Agent monitoring started' );
         period_start = datetime.now()-self.period
         while True:
             if (datetime.now()-period_start) >= self.period:
-                for (conf,infos) in self.server.agents.items():
-                    need_restart=False
-                    if infos.handle is None: 
-                        logger.debug ( 'Agent need to be started: %s', conf );
-                        need_restart=True
-                    elif not infos.handle.is_alive():
-                        logger.debug ( 'Agent has been killed: %s', conf );
-                        need_restart=True
-                    if os.path.exists(conf) and os.stat(conf)[8]>infos.stamp:
-                        logger.debug ( 'Agent configuration has been changed: %s', conf );
-                        need_restart=True
-                    if need_restart:
-                        self.server.relaunch_agent(conf);
+                self.agents_check()
                 # Start a new period
                 period_start = datetime.now()
             # Polling for shutdown must be fast
             time.sleep(1)
             if self.shutdown:
-                logger.info ( 'Monitoring end' );
+                logger.info ( 'Watchdog end' );
+                for _,infos in self.agents.items():
+                    logger.debug ( 'Killing agent %d', infos.handle.ident );
+                    infos.handle.terminate()
                 return
 
 
@@ -213,8 +243,7 @@ if __name__ == "__main__":
     options = parser.parse_args()
 
     # Global parameters
-    default_log_file = "/usr/local/agentcluster//scripts/agentcluster-log.conf"
-    print default_log_file
+    default_log_file = "/etc/agentcluster/agentcluster-log.conf"
     if options.log_config:
         logging.config.fileConfig(options.log_config)
     elif os.path.exists(default_log_file):
