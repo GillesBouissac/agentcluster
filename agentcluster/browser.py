@@ -7,7 +7,7 @@ logger = logging.getLogger('agentcluster.browser')
 
 class Browser:
     """
-        General file bowser from a given list of filesystem objects.
+        General file browser from a given list of filesystem objects.
     """
     def __init__(self):
         # Conf files found after call to browse()

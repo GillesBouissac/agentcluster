@@ -1,8 +1,29 @@
 {
+    "__comment__": [
+        "This file specifies the behavior of a SNMP agent",
+        "",
+        "It can be modified while the server is running, when the server will detect",
+        "  file change, it will automatically restart the agent",
+        "",
+        "The same applies to snapshots files, when their content change, the agent",
+        "  automatically takes the changes into account without restart",
+        "",
+        "The maximum file change detection time is configurable when starting the server",
+        "  throw the option --monitoring",
+        "",
+        "The attribute 'active' below means that the agent is running but do nothing",
+        "  this can be used to stop temporarily an agent",
+        ""
+    ],
     "name":     "windows",
     "engineID": "windows",
     "active":	"True",
 
+    "__comment__": [
+        "List of addresses on which the agent is listening.",
+        "You must be sure that these addresses exist on the host before running the server",
+        "This configuration is system dependent"
+    ],
     "listen": {
         "udp": [
         	"127.0.0.1:33333",
@@ -19,9 +40,22 @@
                 "privAlgo":  "aes",
                 "authPass":  "test-auth-password",
                 "privPass":  "test-priv-password"
+            },
+            {
+                "name":      "usr-snmp-2",
+                "authAlgo":  "md5",
+                "privAlgo":  "des",
+                "authPass":  "test-auth-password",
+                "privPass":  "test-priv-password"
             }
         ],
 
+        "__comment__": [
+            "SNMP V1/V2c: You can specify here one snapshot for each community. The agent will pick its answers",
+            "             from the file associated with the community given by the client",
+            "SNMP V3:     Same behavior but this time snapshots are associated to contexts names. The special",
+            "             empty context name is the default one used when the client did not specify a context."
+        ],
         "mib": {
     	    "":         "WindowsXp.snmpwalk",
     	    "snmpwalk": "WindowsXp.snmpwalk",
