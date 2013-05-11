@@ -93,9 +93,9 @@ case "$1" in
 
     status)
         log_daemon_msg "Checking status of $DESC"
-        start-stop-daemon --status --pidfile $PIDFILE
+        start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile --chuid $DAEMON_UID:$DAEMON_GID --startas $DAEMON --test > /dev/null
         case "$?" in
-            0) log_end_msg 0 ;;
+            1) log_end_msg 0 ;;
             *)
                 # Removes pidfile
                 rm -f $PIDFILE
