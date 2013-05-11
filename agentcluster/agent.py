@@ -164,7 +164,10 @@ class Watchdog(threading.Thread):
         period_start = datetime.now()-self.period
         while True:
             if (datetime.now()-period_start) >= self.period:
-                self.conf_check()
+                try:
+                    self.conf_check()
+                except:
+                    logger.debug ( 'Exception in agent watchdog %s', sys.exc_info()[1] );
                 # Start a new period
                 period_start = datetime.now()
             # Polling for shutdown must be fast

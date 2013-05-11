@@ -42,14 +42,14 @@
 #       Python:           Only tested with v2.6 and v2.7
 #       OS:               Only tested on Linux environment (Ubuntu 64/Squeeze 64).
 #
-
 from agentcluster import __version__, confdir, Any, md5sum, searchFiles
 from agentcluster.agent import Agent
+from agentcluster.database import Database
 from datetime import datetime, timedelta
 from multiprocessing import JoinableQueue
 from multiprocessing.process import current_process
 from pysnmp import debug
-import agentcluster.__init__
+import agentcluster
 import argparse
 import logging.config
 import os
@@ -200,12 +200,28 @@ class Watchdog(threading.Thread):
                 self.agent_stop(conf);
                 self.agent_start(conf,infos.current_sum);
 
+    def database_gc(self):
+        """ Remove database that are not up to date """
+        try:
+            # We try, if we cannot this is maybe because the db is loaded and will be refreshed by its owner
+            for conf in searchFiles(confdir.cache, lambda _,ext: ext in ['db', 'dbm'] ):
+                if not Database.isDbUpToDate ( conf ):
+                    logger.info ( 'Cleaning obsolete database %s', conf );
+                    os.remove(conf)
+                    continue
+        except:
+            logger.debug ( 'Database cannot be cleaned %s', sys.exc_info()[1] );
+
     def run(self):
         logger.info ( 'Master watchdog started' );
         period_start = datetime.now()-self.period
         while True:
             if (datetime.now()-period_start) >= self.period:
-                self.agents_check()
+                try:
+                    self.agents_check()
+                    self.database_gc()
+                except:
+                    logger.debug ( 'Exception in master watchdog %s', sys.exc_info()[1] );
                 # Start a new period
                 period_start = datetime.now()
             # Polling for shutdown must be fast
@@ -235,7 +251,7 @@ if __name__ == "__main__":
         return string
 
     # Process command-line options
-    default_log_file = os.path.split(agentcluster.__init__.__file__)[0] + "/agentcluster-log.conf"
+    default_log_file = os.path.join ( agentcluster.__path__[0], "agentcluster-log.conf")
     epilog = "Default list of data directories if [-a|--agent-dir] is not set:\n"
     for directory in confdir.data:
         epilog += "  - %s\n" % directory

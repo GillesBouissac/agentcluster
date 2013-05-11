@@ -54,9 +54,13 @@ class Database:
 
     def isUpToDate(self):
         """ Check if index database is up to date """
-        textFileSum = md5sum(self.sourceFile)
+        return Database.isDbUpToDate ( self.__dbFile )
+
+    @staticmethod
+    def isDbUpToDate ( databaseFile ):
+        """ Check if index database is up to date """
         upToDate      = False
-        for dbFile in ( self.__dbFile + os.path.extsep + 'db', self.__dbFile ):
+        for dbFile in ( databaseFile + os.path.extsep + 'db', databaseFile ):
             try:
                 if not os.path.exists(dbFile):
                     # Database doesn't exist, try next one
@@ -67,8 +71,13 @@ class Database:
                     break;
                 # From here, database exists and is readable
                 db = dbm.open(dbFile)
+                sourceFile  = db["__source_path__"]
+                if not os.path.exists(sourceFile):
+                    # Source file doesn't exist any more
+                    break;
+                textFileSum = md5sum(sourceFile)
                 if textFileSum != db["__source_md5__"]:
-                    logger.debug ( 'Source file checksum differs from the one used to build the database: %s', self.sourceFile );
+                    logger.debug ( 'Source file checksum differs from the one used to build the database: %s', sourceFile );
                     db.close()
                     break;
                 if not db["__version__"] == Database.version:
@@ -98,8 +107,9 @@ class Database:
         while open_flags:
             try:
                 db = dbm.open(self.__dbFile, open_flags)
-                db["__version__"]    = Database.version
-                db["__source_md5__"] = md5sum(self.sourceFile)
+                db["__version__"]     = Database.version
+                db["__source_path__"] = os.path.abspath(self.sourceFile)
+                db["__source_md5__"]  = md5sum(self.sourceFile)
             except Exception:
                 open_flags = open_flags[:-1]
                 if not open_flags:

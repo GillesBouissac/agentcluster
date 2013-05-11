@@ -10,9 +10,9 @@
    This tool is derived from SNMP simulator (http://sourceforge.net/projects/snmpsim/)
 
 """
-import sys
+from subprocess import call
 import os
-import glob
+import sys
 
 classifiers = """\
 Development Status :: 5 - Production/Stable
@@ -89,44 +89,31 @@ params.update( {
     'license': 'BSD',
     'platforms': ['any'],
     'classifiers': [ x for x in classifiers.split('\n') if x ],
-    'scripts':  [ 'scripts/agentclusterd', 'scripts/agentclusterdump.py' ],
+    'scripts':  [ 'scripts/agentclusterd.py', 'scripts/agentclusterdump.py' ],
     'packages': [ 'agentcluster', 'agentcluster.grammar', 'agentcluster.record' ]
 } )
 
-params['data_files'] = []
+# install default log configuration file
+params['package_data'] = {}
+params['package_data']['agentcluster'] = [ 'agentcluster-log.conf' ]
 
 # install tests as data_files
-for x in os.walk('tests'):
-    params['data_files'].append(
-        ( 'agentcluster/' + '/'.join(os.path.split(x[0])),
-          glob.glob(os.path.join(x[0], '*.snmprec')) + \
-          glob.glob(os.path.join(x[0], '*.snmpwalk')) + \
-          glob.glob(os.path.join(x[0], '*.sapwalk')) + \
-          glob.glob(os.path.join(x[0], '*.agent')) )
-    )
-
-# install debian service script as data_files
-for x in os.walk('debian'):
-    params['data_files'].append(
-        ( 'agentcluster/' + '/'.join(os.path.split(x[0])),
-          glob.glob(os.path.join(x[0], 'agentcluster'))
+params['data_files'] = []
+for root,_,filenames in os.walk('tests'):
+    target_root= 'share/agentcluster/' + '/'.join(os.path.split(root))
+    for filename in filenames:
+        params['data_files'].append(
+            # path must be in independant format: "/" separator
+            ( target_root, [ os.path.join(root,filename) ] )
         )
-    )
 
 # install log conf files as data_files
-for x in os.walk('scripts'):
-    params['data_files'].append(
-        ( 'agentcluster/' + '/'.join(os.path.split(x[0])),
-          glob.glob(os.path.join(x[0], '*.conf'))
-        )
-    )
-
 if 'py2exe' in sys.argv:
     import py2exe
     # fix executables
     params['console'] = params['scripts']
     del params['scripts']
-    # pysnmp used by agentcluster dynamically loads some of its *.py files
+    # pysnmp used by agentcluster and snmpsim dynamically loads some of its *.py files
     params['options'] = {
         'py2exe': {
             'includes': [
@@ -143,7 +130,7 @@ if 'py2exe' in sys.argv:
 
     del params['data_files']  # no need to store these in .exe
 
-    # additional modules used by agentcluster but not seen by py2exe
+    # additional modules to be sure they are imported
     for m in ('dbm', 'gdbm', 'dbhash', 'dumbdb', 'shelve', 'random', 'math', 'bisect', 'hashlib',
               'sqlite3', 'subprocess', 'logging', 'argparse', 'threading', 'multiprocessing', 'time', 'datetime'):
         try:
@@ -152,5 +139,52 @@ if 'py2exe' in sys.argv:
             continue
         else:
             params['options']['py2exe']['includes'].append(m)
+
+
+import distutils.command.install as old_install_mod
+old_install = old_install_mod.install
+from distutils.cmd import Command
+
+class AgClusterInstallDebianService(Command):
+    description = "Install agentcluster as service"
+    user_options = []
+    init_script_src = "debian/etc/init.d/agentcluster"
+    init_script_dst = "/etc/init.d/agentcluster"
+    cache_dir          = "/var/local/agentcluster"
+    data_dir        = "/etc/agentcluster"
+    def initialize_options(self): pass
+    def finalize_options(self): pass
+    def get_outputs(self): return [
+        self.init_script_dst,
+        self.data_dir,
+        self.cache_dir
+    ]
+    def run(self):
+        print "installing service script %s" % self.init_script_dst
+        call(["cp", self.init_script_src, self.init_script_dst])
+        print "changing mode of %s to 755" % self.init_script_dst
+        call(["chmod", "755", self.init_script_dst])
+        print "installing service %s" % self.init_script_dst
+        call(["update-rc.d", "agentcluster", "defaults"])
+        print "creating cache directory %s" % self.cache_dir
+        call(["mkdir", "-p", self.cache_dir])
+        print "preparing conf directory %s" % self.data_dir
+        call(["mkdir", "-p", self.data_dir])
+
+class AgClusterInstall(old_install):
+    def is_debian_compatible(self):
+        try:
+            import platform
+            (distname,_,_) = platform.linux_distribution()
+            if distname in ( 'debian', 'Ubuntu' ): return True
+        except:
+            pass
+        return False
+    sub_commands = old_install.sub_commands + [('install_debian_service', is_debian_compatible),]
+
+params['cmdclass'] = {
+    'install':                  AgClusterInstall,
+    'install_debian_service':   AgClusterInstallDebianService
+}
 
 setup(**params)

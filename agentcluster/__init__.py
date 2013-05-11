@@ -32,6 +32,8 @@ def md5sum(filename):
     return md5.hexdigest()
 
 def searchFiles (fsElements, acceptCb=None):
+    if type(fsElements) is not list:
+        fsElements = [ fsElements ]
     foundFiles = []
     for fsElement in fsElements:
         fsElement = os.path.abspath(fsElement);
