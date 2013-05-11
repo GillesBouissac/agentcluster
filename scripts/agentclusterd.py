@@ -148,7 +148,7 @@ class Watchdog(threading.Thread):
     def agent_start(self, conf, conf_sum):
         try:
             # Instantiate a new agent from this conf file and record it
-            agent = Agent(conf, self.tokens_start, os.getpid(), self.period.total_seconds());
+            agent = Agent(conf, self.tokens_start, os.getpid(), self.period.seconds);
             self.agents[conf].handle = agent
             self.agents[conf].sum    = conf_sum
             # In order to sequence child start: give one token and wait till the child is started
