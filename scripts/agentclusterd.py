@@ -262,8 +262,8 @@ if __name__ == "__main__":
     parser.add_argument( '-v', '--version',    action='version', version=('%(prog)s '+__version__) )
     parser.add_argument( '-l', '--log-config', metavar='<log-conf-file>', type=file_type_r, help='Path to a python log config file in dictionary format' )
     parser.add_argument( '-a', '--agent-dir',  metavar='<agent-config-dir>', type=dir_type, nargs='+', help='Path to data directories that will be scanned for *.agent files. See below for default values if not set.' )
-    parser.add_argument( '-c', '--cache-dir',  metavar='<cache-dir>', default=confdir.cache, help='Path to a directory that will contain application cache. default: %(default)s' )
-    parser.add_argument( '-m', '--monitoring', metavar='<delay>', type=int, choices=range(2,3600), default=30, help='This is the maximum time in second to detect configuration file changes' )
+    parser.add_argument( '-c', '--cache-dir',  metavar='<cache-dir>', default=confdir.cache, help='Path to a directory that contain application cache. default: %(default)s' )
+    parser.add_argument( '-m', '--monitoring', metavar='<delay>', type=int, choices=range(2,3600), default=30, help='Time in second between 2 configuration check' )
     # parser.add_argument( '-m', '--variation-modules-dir', metavar='<path/to/variations>', help='Path to a directory containing variation classes', type=dir_type )
     options = parser.parse_args()
 
