@@ -16,7 +16,7 @@
         ""
     ],
     "name":     "windows",
-    "engineID": "windows",
+    "engineID": "0102030405060708090ABBCCDDEEFF",
     "active":	"True",
 
     "__comment__": [

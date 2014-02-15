@@ -16,7 +16,7 @@
         ""
     ],
     "name":     "Mixed device",
-    "engineID": "mixed",
+    "engineID": "0102030405060708090A",
     "active":	"True",
 
     "__comment__": [

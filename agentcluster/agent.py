@@ -73,11 +73,14 @@ class Agent(Process):
             logger.debug ( 'EngineID="%s"', self.engineID );
 
             engineID_bin=None;
-            try:
-                engineID_bin = self.engineID.decode("hex");
-            except Exception:
-                logger.warn ( 'Cannot convert configured engine ID to byte array, engine ID ignored: %s', self.engineID );
-                logger.debug ( "", exc_info=True );
+            if self.engineID!=None:
+                try:
+                    engineID_bin = self.engineID.decode("hex");
+                except Exception:
+                    logger.warn ( 'Cannot convert configured engine ID to byte array, engine ID ignored: %s', self.engineID );
+                    logger.debug ( "", exc_info=True );
+            else:
+                logger.debug ( "No context engineID specified, let pysnmp generate one" );
 
             snmpEngine = engine.SnmpEngine(snmpEngineID=engineID_bin);
 
