@@ -71,7 +71,15 @@ class Agent(Process):
 
             logger.info ( 'Agent "%s": run', self.name );
             logger.debug ( 'EngineID="%s"', self.engineID );
-            snmpEngine = engine.SnmpEngine(snmpEngineID=self.engineID)
+
+            engineID_bin=None;
+            try:
+                engineID_bin = self.engineID.decode("hex");
+            except Exception:
+                logger.warn ( 'Cannot convert configured engine ID to byte array, engine ID ignored: %s', self.engineID );
+                logger.debug ( "", exc_info=True );
+
+            snmpEngine = engine.SnmpEngine(snmpEngineID=engineID_bin);
 
             logger.debug ( 'Agent "%s": Configure transport layer', self.name );
             for protocol, params in self.listen.__dict__.items():
