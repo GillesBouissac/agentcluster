@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 #
-# Name:         AgentCluster
-# Author:       Gilles Bouissac
-# Description:  This module is able to simulate a network of SNMP agents on one single host
-#               Each agent has its own IP, port, protocol versions, users, mibs, communities, contextes.
-#
-# Credits:      This module is derived from snmpsim module (http://snmpsim.sourceforge.net).
+# Copyright (c) 2014, Gilles Bouissac <agentcluster@gmail.com>
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+#   * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Enhancements from snmpsim:
 #
@@ -20,27 +26,12 @@
 #
 #       snapshots:        We can use comments (line beginning with #) and empty lines in snapshot files
 #
-# Refactoring:
-#
-#       logging:          Change sys.stdout.write to Python logging framework. this allow to send logs
-#                         to console/syslog/file etc... just with a conf file
-#
-#       options:          Change use of getopt to argparse
-#
-# Compatibility:
+# Compatibility with snmpsim:
 #
 #       snmprec.py:       Will not be integrated, you can use snmpsim version to produce snapshots
 #                         from mib definition files
 #       mib2dev.py:       Will not be integrated, you can use snmpsim version to produce snapshots
 #                         from live snmp agents to produce snmprec files
-#
-# Restrictions:
-#
-#       variations:       Not integrated, maybe one day
-#       index MIB:        Not integrated, maybe one day
-#
-#       Python:           Only tested with v2.6 and v2.7
-#       OS:               Only tested on Linux environment (Ubuntu 64/Squeeze 64).
 #
 from agentcluster import __version__, confdir, Any, md5sum, searchFiles
 from agentcluster.agent import Agent
@@ -251,27 +242,32 @@ if __name__ == "__main__":
         return string
 
     # Process command-line options
-    default_log_file = os.path.join ( agentcluster.__path__[0], "agentcluster-log.conf")
+    syslog_log_file  = os.path.join ( agentcluster.__path__[0], "agentcluster-log-syslog.conf");
+    console_log_file = os.path.join ( agentcluster.__path__[0], "agentcluster-log-console.conf");
+    default_log_file = syslog_log_file;
+
     epilog = "Default list of data directories if [-a|--agent-dir] is not set:\n"
     for directory in confdir.data:
         epilog += "  - %s\n" % directory
-    epilog += "\n"
-    epilog += "Default log configuration file if [-l|--log-config] is not set:\n"
-    epilog += "  - %s\n" % default_log_file
-    parser = argparse.ArgumentParser(description='SNMP Cluster of agents, by Gilles Bouissac. version %s'%__version__, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description='SNMP Cluster of agents version %s'%__version__, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument( '-v', '--version',    action='version', version=('%(prog)s '+__version__) )
-    parser.add_argument( '-l', '--log-config', metavar='<log-conf-file>', type=file_type_r, help='Path to a python log config file in dictionary format' )
-    parser.add_argument( '-a', '--agent-dir',  metavar='<agent-config-dir>', type=dir_type, nargs='+', help='Path to data directories that will be scanned for *.agent files. See below for default values if not set.' )
+    parser.add_argument( '-l', '--log-dest',   choices=['console', 'syslog'], default='syslog', help='Log output, default to syslog if not set' )
+    parser.add_argument( '-a', '--agent-dir',  metavar='<root-dir>', type=dir_type, nargs='+', help='Path to root directories that will be scanned for *.agent files. See below for default values if not set.' )
     parser.add_argument( '-c', '--cache-dir',  metavar='<cache-dir>', default=confdir.cache, help='Path to a directory that contain application cache. default: %(default)s' )
     parser.add_argument( '-m', '--monitoring', metavar='<delay>', type=int, choices=range(2,3600), default=30, help='Time in second between 2 configuration check' )
     # parser.add_argument( '-m', '--variation-modules-dir', metavar='<path/to/variations>', help='Path to a directory containing variation classes', type=dir_type )
     options = parser.parse_args()
 
     # Global parameters
-    if options.log_config:
-        logging.config.fileConfig(options.log_config)
+    if options.log_dest == 'console':
+        if os.path.exists(console_log_file):
+            logging.config.fileConfig(console_log_file)
+    elif options.log_dest == 'syslog':
+        if os.path.exists(syslog_log_file):
+            logging.config.fileConfig(syslog_log_file)
     elif os.path.exists(default_log_file):
         logging.config.fileConfig(default_log_file)
+
     if options.agent_dir:
         confdir.data = []
         for ddir in options.agent_dir:

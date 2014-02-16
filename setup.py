@@ -95,7 +95,7 @@ params.update( {
 
 # install default log configuration file
 params['package_data'] = {}
-params['package_data']['agentcluster'] = [ 'agentcluster-log.conf', 'agentclusterdump-log.conf' ]
+params['package_data']['agentcluster'] = [ 'agentcluster-log-syslog.conf', 'agentcluster-log-console.conf' ]
 
 # install tests as data_files
 params['data_files'] = []
