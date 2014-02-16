@@ -3,7 +3,7 @@
 set -u
 
 echo "Start agentcluster in background"
-../scripts/agentclusterd.py -l ./test-log.conf -a ./ -m 10 &
+../scripts/agentclusterd.py -a ./ -m 10 &
 AGPID=$!
 
 echo "Wait 2 secs for agentcluster readiness"
