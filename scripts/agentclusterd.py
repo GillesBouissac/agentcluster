@@ -21,8 +21,7 @@
 #       dynamic:          Snapshots files are reloaded automatically when modified
 #                         agents are restarted automatically when definition files are modified
 #
-#       performances:     No more dichotomy based on file seek, searches are exclusively based on database.
-#                         GetNexts are deterministic.
+#       performances:     MIB search is exclusively based on database and optimized for get-next.
 #
 #       snapshots:        We can use comments (line beginning with #) and empty lines in snapshot files
 #
