@@ -188,7 +188,7 @@ This should produce the same results as when dumping the MIB from the real devic
 ## Don't forget
 
 * Please avoid binding __agentcluster__ on a public address or make it at your own risks, remember that this is a test tool,
-* This tool is designed to simulate a large number of agents but I don't have any figure yet,
+* Here are some concrete test results: [test results](./tests/results),
 * There are some configuration sample in the directory [tests](./tests) of __agentcluster__ repository,
 * There is a more configuration details in the file [DETAILS.md](DETAILS.md) in the same repository,
 * There is now a tool that can be used to generate simple agent configuration to simulate large networks [conf-generator](./tools/conf-generator).
