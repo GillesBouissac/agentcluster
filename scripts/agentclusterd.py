@@ -200,16 +200,25 @@ class Watchdog(threading.Thread):
                     os.remove(conf)
                     continue
         except:
-            logger.debug ( 'Database cannot be cleaned %s', sys.exc_info()[1] );
+            logger.warning ( 'Database cannot be cleaned %s', sys.exc_info()[1] );
 
     def run(self):
         logger.info ( 'Master watchdog started' );
+        # Issue #2: Clean databases only on start
+        self.database_gc()
         period_start = datetime.now()-self.period
         while True:
             if (datetime.now()-period_start) >= self.period:
                 try:
                     self.agents_check()
-                    self.database_gc()
+                    # Issue #2: Calling database_gc here cause agent crash in this case:
+                    #   - Someone changes a source snapshot file
+                    #   - This GC runs and remove the obsolete database
+                    #   - The agent that monitor this database is still waiting in his monitor loop
+                    #     it didn't saw that the database need to be rebuilt
+                    #   - A snmp manager try to get a value from this database and the agent crashes.
+                    # We stop doing this here and do it only at startup.
+                    # self.database_gc()
                 except:
                     logger.debug ( 'Exception in master watchdog %s', sys.exc_info()[1] );
                 # Start a new period
@@ -222,7 +231,6 @@ class Watchdog(threading.Thread):
                     logger.debug ( 'Killing agent %d', infos.handle.ident );
                     infos.handle.terminate()
                 return
-
 
 if __name__ == "__main__":
 
