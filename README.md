@@ -66,7 +66,7 @@ An that's all, __agentcluster__ is now installed on you _host device_.
                             [-a <root-dir> [<root-dir> ...]] [-c <cache-dir>]
                             [-m <delay>]
     
-    SNMP Cluster of agents version 0.1.1
+    SNMP Cluster of agents version 0.2.0
     
     optional arguments:
       -h, --help            show this help message and exit
