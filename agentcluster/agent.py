@@ -135,16 +135,11 @@ class Agent(Process):
             logger.debug ( 'Agent "%s": interrupted', self.name );
         except Exception:
             logger.error ( 'Unexpected exception catched in agent: %s', sys.exc_info()[1] );
-            logger.debug ( "", exc_info=True );
+            logger.error ( "", exc_info=True );
         finally:
-            if transportDispatcher != None:
-                transportDispatcher.closeDispatcher()
-            logger.info ( 'Agent "%s": end', self.name );
-            logging.shutdown()
-            try:
-                self.tokens_start.task_done();
-            except:
-                pass;
+            # Issue #3: This agent is no longer usable so commit suicide to be sure
+            # This process won't become a zombie and that parent will start a new agent 
+            os.kill(os.getpid(), signal.SIGKILL)
 
     def parse(self, confFile):
         parsed = AnyJsonDecoder().decode( open(confFile).read() )
