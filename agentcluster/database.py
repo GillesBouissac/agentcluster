@@ -281,9 +281,10 @@ class Database:
         self.__lock.acquire(True);
         try:
             next_oid = self.__db["next." + oid]
+            oid, is_subtree, tag_class, val = self.lookup(next_oid);
         finally:
             self.__lock.release();
-        return self.lookup(next_oid)
+        return oid, is_subtree, tag_class, val;
 
     def dump(self):
         """ Dump current database """
