@@ -16,6 +16,7 @@ from agentcluster import confdir, md5sum
 from pyasn1.compat.octets import str2octs
 from pyasn1.type import univ
 from whichdb import whichdb
+import threading
 import anydbm as dbm
 import logging
 import os
@@ -38,22 +39,37 @@ class Database:
     all = []
 
     def __init__(self, textFile, textParser):
-        self.sourceFile = textFile
-        self.textParser = textParser
-        self.__dbFile = textFile
-        self.__dbFile = self.__dbFile + os.path.extsep + 'dbm'
-        self.__dbFile = os.path.join(confdir.cache, os.path.splitdrive(self.__dbFile)[1].replace(os.path.sep, '_'))
-        self.__db = self.__text = None
-        self.__dbType = '?'
+        self.sourceFile  = textFile
+        self.textParser  = textParser
+        self.__dbFile    = textFile + os.path.extsep + 'dbm'
+        self.__dbFile    = os.path.join(confdir.cache, os.path.splitdrive(self.__dbFile)[1].replace(os.path.sep, '_'))
+        self.__dbFileTmp = self.__dbFile + os.path.extsep + 'tmp'
+        self.__db        = self.__text = None
+        self.__dbType    = '?'
+        self.__lock      = threading.RLock()
         Database.all.append(self)
 
     def __str__(self):
-        return 'Data file %s, %s-indexed, %s' % (
-            self.sourceFile, self.__dbType, self.__db and 'opened' or 'closed'
-        )
+        res = ""
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            res= 'Data file %s, %s-indexed, %s' % (
+                self.sourceFile, self.__dbType, self.__db and 'opened' or 'closed'
+            )
+        finally:
+            self.__lock.release();
+        return res
 
     def isOpen(self):
-        return self.__db is not None
+        rc = False;
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            rc = self.__db is not None
+        finally:
+            self.__lock.release();
+        return rc
 
     def check_cache(self,cachedir):
         if not os.path.exists(cachedir):
@@ -68,7 +84,14 @@ class Database:
 
     def isUpToDate(self):
         """ Check if index database is up to date """
-        return Database.isDbUpToDate ( self.__dbFile )
+        rc = False;
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            rc = Database.isDbUpToDate ( self.__dbFile )
+        finally:
+            self.__lock.release();
+        return rc;
 
     @staticmethod
     def isDbUpToDate ( databaseFile ):
@@ -112,15 +135,13 @@ class Database:
         # The cache directory must exist
         self.check_cache(confdir.cache)
 
-        # In case something has already been done with this objecttextFileStamp
-        self.close();
-
         # these might speed-up indexing
         db_oids = []
         open_flags = 'nfu' 
         while open_flags:
             try:
-                db = dbm.open(self.__dbFile, open_flags)
+                # Issue #4: work on a temporary file to limit collisions
+                db = dbm.open(self.__dbFileTmp, open_flags)
                 db["__version__"]     = Database.version
                 db["__source_path__"] = os.path.abspath(self.sourceFile)
                 db["__source_md5__"]  = md5sum(self.sourceFile)
@@ -133,7 +154,7 @@ class Database:
 
         text = open(self.sourceFile, 'rb')
 
-        logger.debug ( 'Building index %s for data file %s (open flags \"%s\")', self.__dbFile, self.sourceFile, open_flags );
+        logger.debug ( 'Building index %s for data file %s (open flags \"%s\")', self.__dbFileTmp, self.sourceFile, open_flags );
 
         # Build the "direct" indexes to have direct access to values
         nb_direct = nb_next = 0
@@ -152,7 +173,7 @@ class Database:
                 db.close()
                 exc = sys.exc_info()[1]
                 try:
-                    os.remove(self.__dbFile)
+                    os.remove(self.__dbFileTmp)
                 except OSError:
                     pass
                 raise Exception('Data error at %s:%d: %s' % ( self.sourceFile, lineNo, exc ) )
@@ -163,7 +184,7 @@ class Database:
                 db.close()
                 exc = sys.exc_info()[1]
                 try:
-                    os.remove(self.__dbFile)
+                    os.remove(self.__dbFileTmp)
                 except OSError:
                     pass
                 raise Exception( 'OID error at %s:%d: %s' % ( self.sourceFile, lineNo, exc ) )
@@ -210,12 +231,21 @@ class Database:
         text.close()
         db.close()
         logger.debug ( 'Index ok: %d direct entries, %d next entries' % (nb_direct,nb_next) );
-        self.__dbType = whichdb(self.__dbFile)
+
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            self.close()
+            if os.access(self.__dbFile, os.R_OK):
+                os.remove(self.__dbFile);
+            os.rename(self.__dbFileTmp, self.__dbFile);
+            self.__dbType = whichdb(self.__dbFile)
+        finally:
+            self.__lock.release();
 
     def create(self):
         if not self.isUpToDate():
             self.refresh();
-        self.__dbType = whichdb(self.__dbFile)
         return self
 
     def str2class(self, class_full_name):
@@ -229,7 +259,14 @@ class Database:
 
     def lookup(self, oid):
         """ Returns the record which oid is exactly the given one or None if the record doesn't exist """
-        oid, is_subtree, tag, val = self.__db[oid].split(str2octs(','), 3)
+
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            oid, is_subtree, tag, val = self.__db[oid].split(str2octs(','), 3)
+        finally:
+            self.__lock.release();
+
         try:
             tag_class = self.str2class(tag);
         except Exception:
@@ -239,12 +276,24 @@ class Database:
 
     def lookup_next(self, oid):
         """ Returns the record which oid is the closest after the given one or None if none exist after """
-        next_oid = self.__db["next." + oid]
+
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            next_oid = self.__db["next." + oid]
+        finally:
+            self.__lock.release();
         return self.lookup(next_oid)
 
     def dump(self):
         """ Dump current database """
-        self.dump_from_file(self.__dbFile)
+
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            self.dump_from_file(self.__dbFile)
+        finally:
+            self.__lock.release();
 
     def dump_from_file(self, dbfile):
         """ Dump a database in debug log level """
@@ -257,9 +306,19 @@ class Database:
         db.close()
 
     def open(self):
-        self.__db = dbm.open(self.__dbFile)
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            self.__db = dbm.open(self.__dbFile)
+        finally:
+            self.__lock.release();
 
     def close(self):
-        if self.__text!=None:self.__text.close()
-        if self.__db!=None:self.__db.close()
-        self.__db = self.__text = None
+        # Issue #4: Synchronizes access to the database
+        self.__lock.acquire(True);
+        try:
+            if self.__text!=None:self.__text.close()
+            if self.__db!=None:self.__db.close()
+            self.__db = self.__text = None
+        finally:
+            self.__lock.release();
