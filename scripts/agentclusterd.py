@@ -32,7 +32,7 @@
 #       mib2dev.py:       Will not be integrated, you can use snmpsim version to produce snapshots
 #                         from live snmp agents to produce snmprec files
 #
-from agentcluster import __version__, confdir, Any, md5sum, searchFiles
+from agentcluster import __version__, confdir, Any, md5sum, searchFiles, setProcTitle
 from agentcluster.agent import Agent
 from agentcluster.database import Database
 from datetime import datetime, timedelta
@@ -64,6 +64,9 @@ class AgentCluster:
             self.monitoring_period = options.monitoring
 
     def run(self):
+
+        # Changes the process name shown by ps for instance
+        setProcTitle ("agentcluster master [version: %s] [monitoring: %d seconds]" % (__version__,self.monitoring_period) );
 
         try:
             logger.info ( 'Agent cluster server starting' );
@@ -129,6 +132,7 @@ class Watchdog(threading.Thread):
             if agent!=None:
                 logger.info ( 'Agent "%s" stopped: %s', agent.name, conf );
                 agent.terminate()
+                agent.join(1)
                 self.agents[conf].handle = None
         except Exception:
             logger.error ( 'Exception while killing agent: %s', sys.exc_info()[1] );
@@ -230,6 +234,7 @@ class Watchdog(threading.Thread):
                 for _,infos in self.agents.items():
                     logger.debug ( 'Killing agent %d', infos.handle.ident );
                     infos.handle.terminate()
+                    infos.handle.join(1)
                 return
 
 if __name__ == "__main__":

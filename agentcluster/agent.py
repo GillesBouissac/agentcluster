@@ -13,7 +13,7 @@
 # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from agentcluster import AnyJsonDecoder, makeAppName
+from agentcluster import AnyJsonDecoder, makeAppName, setProcTitle
 from agentcluster.database import Database
 from agentcluster.exception import ClusterException
 from agentcluster.snmpsetup import *
@@ -69,11 +69,16 @@ class Agent(Process):
         self.parse (confFile)
 
     def run(self):
+
         transportDispatcher = None;
         try:
             # Initialize the engine
             self.tokens_start.get();
             if self.active is not None and self.active.lower()=="false":
+
+                # Changes the process name shown by ps for instance
+                setProcTitle ("agentcluster agent  [active: False]  [name: %s]" % self.name);
+
                 logger.info ( 'Agent "%s": inactive', self.name );
                 # Generates a deadlock to enter in sleep mode
                 # Only an external signal can break this deadlock
@@ -81,6 +86,9 @@ class Agent(Process):
                 queue = JoinableQueue()
                 queue.put(object());
                 queue.join();
+
+            # Changes the process name shown by ps for instance
+            setProcTitle ("agentcluster agent  [active: True ]  [name: %s]" % self.name);
 
             logger.info ( 'Agent "%s": run', self.name );
             logger.debug ( 'EngineID="%s"', self.engineID );
@@ -158,7 +166,9 @@ class Agent(Process):
             msg = 'Agent name is mandatory in conf file %s' % (confFile);
             logger.error ( msg );
             raise ClusterException(msg);
+
         self.name = makeAppName(parsed.name)
+
         if self.snmpv1 is None and self.snmpv2c is None and self.snmpv3 is None:
             msg = 'Agent "%s": no protocol specified in conf file %s' % (self.name, confFile);
             logger.error ( msg );

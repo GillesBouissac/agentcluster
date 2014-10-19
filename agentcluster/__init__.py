@@ -18,6 +18,15 @@ import hashlib
 import json
 import os
 
+def dummySetproctitle(title):
+    """ Inactive version of setproctitle when the package is not installed """
+    pass
+
+try:
+    from setproctitle import setproctitle as setProcTitle
+except ImportError:
+    from agentcluster import dummySetproctitle as setProcTitle
+
 class Any:
     """ Class intended to be filled with members read from a JSON file """
     def __init__(self, **_dict):
@@ -76,3 +85,4 @@ def makeAppName(name):
         if len(processName)>48:
             break;
     return processName;
+
