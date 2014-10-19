@@ -40,6 +40,10 @@ And some additional libraries from [pypi][]:
 * [pyasn1][pyasn1-pypi] 0.1.7 or later.
 * [pysnmp][pysnmp-pypi] 4.2.4 or later,
 
+This one is only mandatory if you want the agent process name to appear with the agent name in the system:
+
+* [setproctitle][setproctitle-pypi] 1.1.8 or later.
+
 Most of the time, installation of these libraries is straightforward: uncompress the archives then in each uncompressed directory run:  
 
     python setup.py install
@@ -206,9 +210,9 @@ __agentcluster__ software is free and open-source. It's being distributed under 
 [pysnmp-pypi]: https://pypi.python.org/pypi/pysnmp/4.2.4
 [pycrypto-pypi]: https://pypi.python.org/pypi/pycrypto/2.6
 [pyasn1-pypi]: https://pypi.python.org/pypi/pyasn1/0.1.7
+[setproctitle-pypi]: https://pypi.python.org/pypi/setproctitle/1.1.8
 [netsnmp]: http://www.net-snmp.org/
 [snmptrap]: http://www.net-snmp.org/docs/man/snmptrap.html
 [snmpinform]: http://www.net-snmp.org/docs/man/snmptrap.html
 [snmpwalk]: http://www.net-snmp.org/docs/man/snmpwalk.html
 [snmpbulkget]: http://www.net-snmp.org/docs/man/snmpbulkget.html
-
