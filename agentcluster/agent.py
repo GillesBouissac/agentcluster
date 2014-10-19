@@ -13,7 +13,7 @@
 # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from agentcluster import AnyJsonDecoder
+from agentcluster import AnyJsonDecoder, makeAppName
 from agentcluster.database import Database
 from agentcluster.exception import ClusterException
 from agentcluster.snmpsetup import *
@@ -158,7 +158,7 @@ class Agent(Process):
             msg = 'Agent name is mandatory in conf file %s' % (confFile);
             logger.error ( msg );
             raise ClusterException(msg);
-        self.name = parsed.name
+        self.name = makeAppName(parsed.name)
         if self.snmpv1 is None and self.snmpv2c is None and self.snmpv3 is None:
             msg = 'Agent "%s": no protocol specified in conf file %s' % (self.name, confFile);
             logger.error ( msg );
@@ -167,7 +167,6 @@ class Agent(Process):
         if self.snmpv1  is not None: self.snmpv1.confPath  = confPath;
         if self.snmpv2c is not None: self.snmpv2c.confPath = confPath;
         if self.snmpv3  is not None: self.snmpv3.confPath  = confPath;
-
 
 class Watchdog(threading.Thread):
     """ Daemon thread that check the parent thread and commit suicide if parent is missing """

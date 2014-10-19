@@ -58,3 +58,21 @@ def searchFiles (fsElements, acceptCb=None):
                     continue
                 foundFiles.append(fullpath);
     return foundFiles
+
+def makeAppName(name):
+    """
+      Issue #4: spaces not allowed in process name (for syslog)
+      Make it conform to APP-NAME in RFC5424:
+        APP-NAME        = NILVALUE / 1*48PRINTUSASCII
+        PRINTUSASCII    = %d33-126
+      Any character not in the range PRINTUSASCII is replaced by char '.'
+    """
+    processName = "";
+    for char in name:
+        if ord(char)<33 or ord(char)>126:
+            processName += '.';
+        else:
+            processName += char;
+        if len(processName)>48:
+            break;
+    return processName;

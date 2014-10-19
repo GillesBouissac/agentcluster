@@ -15,7 +15,7 @@
         "  this can be used to stop temporarily an agent",
         ""
     ],
-    "name":     "Mixed device",
+    "name":     "This very long device name is too long for syslog protocol",
     "engineID": "0102030405060708090A",
     "active":	"True",
 
