@@ -66,7 +66,7 @@ An that's all, __agentcluster__ is now installed on you _host device_.
                             [-a <root-dir> [<root-dir> ...]] [-c <cache-dir>]
                             [-m <delay>]
     
-    SNMP Cluster of agents version 0.2.1
+    SNMP Cluster of agents version 0.2.2
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -188,10 +188,10 @@ This should produce the same results as when dumping the MIB from the real devic
 ## Don't forget
 
 * Please avoid binding __agentcluster__ on a public address or make it at your own risks, remember that this is a test tool,
-* Here are some concrete test results: [test results](./tests/results),
+* Here are some concrete test results: [test results](./tests/results/Perfs-Ubuntu.md),
 * There are some configuration sample in the directory [tests](./tests) of __agentcluster__ repository,
 * There is a more configuration details in the file [DETAILS.md](DETAILS.md) in the same repository,
-* There is now a tool that can be used to generate simple agent configuration to simulate large networks [conf-generator](./tools/conf-generator).
+* There is now a tool that can be used to generate simple agent configuration to simulate large networks [conf-generator](./tools/conf-generator/agentcluster-conf-generator.sh).
 
 ## License
 __agentcluster__ software is free and open-source. It's being distributed under a liberal BSD-style [license](LICENSE.md).
